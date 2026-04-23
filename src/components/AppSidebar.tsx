@@ -1,14 +1,15 @@
-import { LayoutDashboard, Bus, CalendarDays, Users, KanbanSquare, Sparkles, Wallet, BarChart3, MessageCircle, Settings, Plane } from "lucide-react";
+import { LayoutDashboard, Bus, CalendarDays, Users, KanbanSquare, Sparkles, Wallet, BarChart3, MessageCircle, Settings, Plane, ShieldCheck } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
 
 const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Frota", url: "/frota", icon: Bus },
-  { title: "Agenda", url: "/agenda", icon: CalendarDays },
+  { title: "Embarques", url: "/embarques", icon: CalendarDays },
   { title: "Passageiros", url: "/passageiros", icon: Users },
   { title: "CRM / Funil", url: "/crm", icon: KanbanSquare },
   { title: "Prospecção", url: "/prospeccao", icon: Sparkles },
@@ -18,15 +19,19 @@ const tools = [
   { title: "Financeiro", url: "/financeiro", icon: Wallet },
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
   { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
+  const { profile, roles } = useAuth();
+  const isAdmin = roles.includes("admin");
 
-  const renderItem = (item: typeof main[number]) => {
+  const initials = (profile?.nome || profile?.email || "U")
+    .split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+
+  const renderItem = (item: { title: string; url: string; icon: any }) => {
     const active = pathname === item.url;
     return (
       <SidebarMenuItem key={item.title}>
@@ -79,15 +84,27 @@ export function AppSidebar() {
             <SidebarMenu className="gap-1">{tools.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup className="mt-4">
+            {!collapsed && <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70 px-3">Admin</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {renderItem({ title: "Equipe", url: "/equipe", icon: ShieldCheck })}
+                {renderItem({ title: "Configurações", url: "/configuracoes", icon: Settings })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <div className={`flex items-center gap-3 rounded-lg p-2 ${collapsed ? "justify-center" : "bg-sidebar-accent/40"}`}>
-          <div className="h-8 w-8 rounded-full bg-gradient-gold flex items-center justify-center text-primary-foreground text-xs font-bold">RS</div>
+          <div className="h-8 w-8 rounded-full bg-gradient-gold flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">{initials}</div>
           {!collapsed && (
             <div className="flex flex-col leading-tight min-w-0">
-              <span className="text-xs font-medium truncate">Rafael Souza</span>
-              <span className="text-[10px] text-muted-foreground">Administrador</span>
+              <span className="text-xs font-medium truncate">{profile?.nome || "Usuário"}</span>
+              <span className="text-[10px] text-muted-foreground capitalize">{roles[0] || "—"}</span>
             </div>
           )}
         </div>
