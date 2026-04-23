@@ -1,11 +1,17 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ReactNode } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const handleLogout = async () => { await signOut(); navigate("/auth"); };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -25,8 +31,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <Bell className="h-[18px] w-[18px]" />
                 <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
               </Button>
-              <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow font-medium">
-                + Novo embarque
+              <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
+                <LogOut className="h-[18px] w-[18px]" />
               </Button>
             </div>
           </header>
