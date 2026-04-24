@@ -16,7 +16,9 @@ export type Database = {
     Tables: {
       embarque_passageiros: {
         Row: {
+          bilhete_impresso: boolean
           check_in: boolean
+          comprovante_enviado: boolean
           created_at: string
           embarque_id: string
           id: string
@@ -25,9 +27,12 @@ export type Database = {
           passageiro_id: string
           poltrona: string | null
           valor_pago: number
+          vendido: boolean
         }
         Insert: {
+          bilhete_impresso?: boolean
           check_in?: boolean
+          comprovante_enviado?: boolean
           created_at?: string
           embarque_id: string
           id?: string
@@ -36,9 +41,12 @@ export type Database = {
           passageiro_id: string
           poltrona?: string | null
           valor_pago?: number
+          vendido?: boolean
         }
         Update: {
+          bilhete_impresso?: boolean
           check_in?: boolean
+          comprovante_enviado?: boolean
           created_at?: string
           embarque_id?: string
           id?: string
@@ -47,6 +55,7 @@ export type Database = {
           passageiro_id?: string
           poltrona?: string | null
           valor_pago?: number
+          vendido?: boolean
         }
         Relationships: [
           {
