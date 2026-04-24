@@ -18,6 +18,7 @@ import CRM from "./pages/CRM";
 import Prospeccao from "./pages/Prospeccao";
 import Equipe from "./pages/Equipe";
 import Placeholder from "./pages/Placeholder";
+import PaginaEmbarques from "./pages/Carros.tsx";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/aguardando" element={<Aguardando />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/frota" element={protectedLayout(<Frota />)} />
+            <Route path="/PaginaEmbarques" element={protectedLayout(<PaginaEmbarques />)} />
             <Route path="/embarques" element={protectedLayout(<Embarques />)} />
             <Route path="/agenda" element={protectedLayout(<Agenda />)} />
             <Route path="/passageiros" element={protectedLayout(<Passageiros />)} />

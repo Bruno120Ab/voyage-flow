@@ -10,6 +10,8 @@ const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Frota", url: "/frota", icon: Bus },
   { title: "Embarques", url: "/embarques", icon: CalendarDays },
+    { title: "Carros", url: "/PaginaEmbarques", icon: CalendarDays },
+
   { title: "Passageiros", url: "/passageiros", icon: Users },
   { title: "CRM / Funil", url: "/crm", icon: KanbanSquare },
   { title: "Prospecção", url: "/prospeccao", icon: Sparkles },
