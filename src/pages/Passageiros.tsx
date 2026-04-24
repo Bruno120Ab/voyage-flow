@@ -85,7 +85,7 @@ export default function Passageiros() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"todos" | "fechar" | "volta" | "inativos">("fechar");
-  const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "novo" as Tag, observacoes: "" });
+  const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente" as Tag, observacoes: "" });
 
   const load = async () => {
     setLoading(true);
@@ -230,7 +230,7 @@ export default function Passageiros() {
                 <Select value={form.tag} onValueChange={(v: Tag) => setForm(f => ({...f, tag: v}))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(tagLabel) as Tag[]).map(t => <SelectItem key={t} value={t}>{tagLabel[t]}</SelectItem>)}
+                    {formTags.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
