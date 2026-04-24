@@ -8,18 +8,19 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Frota", url: "/frota", icon: Bus },
+  // { title: "Frota", url: "/frota", icon: Bus },
   { title: "Embarques", url: "/embarques", icon: CalendarDays },
-    { title: "Carros", url: "/PaginaEmbarques", icon: CalendarDays },
-
-  { title: "Passageiros", url: "/passageiros", icon: Users },
-  { title: "CRM / Funil", url: "/crm", icon: KanbanSquare },
-  { title: "Prospecção", url: "/prospeccao", icon: Sparkles },
+  { title: "Entregas", url: "/entregas", icon: CalendarDays },
+  { title: "Frotas", url: "/PaginaEmbarques", icon: Bus },
+  { title: "Clientes", url: "/passageiros", icon: Users },
+  // { title: "CRM / Funil", url: "/crm", icon: KanbanSquare },
+  // { title: "Prospecção", url: "/prospeccao", icon: Sparkles },
 ];
 
 const tools = [
   { title: "Financeiro", url: "/financeiro", icon: Wallet },
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
+  { title: "Contatos", url: "/Contatos", icon: BarChart3 },
   { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
 ];
 

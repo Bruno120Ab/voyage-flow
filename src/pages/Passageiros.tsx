@@ -12,6 +12,7 @@ import { Phone, MessageCircle, Search, Plus, Star, Loader2, Users, Flame, Rotate
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
+import { Trash2 } from "lucide-react";
 
 type Tag = "novo" | "recorrente" | "vip" | "retorno" | "inativo" | "quente";
 interface Passageiro {
@@ -65,6 +66,16 @@ const waLink = (phone: string | null, msg: string) => {
   return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
 };
 
+const getValorVenda = (item: ActionItem): number => {
+  const meta = item.meta;
+
+  // tenta extrair número do "R$ 1.500,00"
+  const match = meta?.match(/[\d.]+/g);
+  if (!match) return 0;
+
+  const value = Number(match.join("").replace(/\./g, ""));
+  return isNaN(value) ? 0 : value;
+};  
 type ActionItem = {
   id: string;
   nome: string;
@@ -73,8 +84,12 @@ type ActionItem = {
   subtitle: string;
   meta: string;
   msg: string;
+  valorVenda?: number;
+  comissao?: number;
   badge?: { label: string; className: string };
 };
+const getComissao = (valor: number) => valor * 0.08;
+
 
 export default function Passageiros() {
   const [items, setItems] = useState<Passageiro[]>([]);
@@ -86,6 +101,29 @@ export default function Passageiros() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"todos" | "fechar" | "retorno" | "inativos">("fechar");
   const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente" as Tag, observacoes: "" });
+
+  const handleDelete = async (id: string) => {
+    const confirm = window.confirm("Tem certeza que deseja deletar este passageiro?");
+    if (!confirm) return;
+
+    const oldItems = items;
+
+    // otimista (UI instantânea)
+    setItems(prev => prev.filter(p => p.id !== id));
+
+    const { error } = await supabase
+      .from("passageiros")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao deletar passageiro");
+      setItems(oldItems); // rollback
+      return;
+    }
+
+    toast.success("Passageiro deletado");
+  };
 
   const load = async () => {
     setLoading(true);
@@ -102,6 +140,7 @@ export default function Passageiros() {
     setEmbPax((eps.data as any) ?? []);
     setLoading(false);
   };
+  
   useEffect(() => { load(); }, []);
 
   const handleSave = async () => {
@@ -300,7 +339,7 @@ export default function Passageiros() {
             <TabsContent value="fechar"><ActionGrid items={applySearch(fecharVenda)} emptyMsg="Nenhum lead em negociação. Bom momento pra prospectar!" /></TabsContent>
             <TabsContent value="retorno"><ActionGrid items={applySearch(venderVolta)} emptyMsg="Ninguém com ida sem retorno nos últimos 30 dias." /></TabsContent>
             <TabsContent value="inativos"><ActionGrid items={applySearch(inativos)} emptyMsg="Sua base está aquecida — nenhum inativo." /></TabsContent>
-            <TabsContent value="todos"><PassageirosTable items={applySearch(items)} /></TabsContent>
+            <TabsContent value="todos"><PassageirosTable items={applySearch(items)} onDelete={handleDelete} /></TabsContent>
           </>
         )}
       </Tabs>
@@ -366,6 +405,21 @@ function ActionGrid({ items, emptyMsg }: { items: ActionItem[]; emptyMsg: string
                 </a>
               )}
             </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-3 pb-3 border-b border-border/50">
+  {/* <span>{it.telefone || "Sem telefone"}</span> */}
+
+  {/* <div className="text-right">
+    <p className="font-display font-semibold text-foreground">
+      {it.meta}
+    </p>
+
+    {it.valorVenda ? (
+      <p className="text-[10px] text-success">
+        Comissão: R$ {getComissao(it.valorVenda).toLocaleString("pt-BR")}
+      </p>
+    ) : null}
+  </div> */}
+</div>
           </Card>
         );
       })}
@@ -373,7 +427,15 @@ function ActionGrid({ items, emptyMsg }: { items: ActionItem[]; emptyMsg: string
   );
 }
 
-function PassageirosTable({ items }: { items: Passageiro[] }) {
+function PassageirosTable({
+  items,
+  onDelete,
+}: {
+  items: Passageiro[];
+  onDelete: (id: string) => void;
+}) {
+ 
+
   if (items.length === 0) {
     return (
       <Card className="glass-card p-12 text-center">
@@ -404,7 +466,7 @@ function PassageirosTable({ items }: { items: Passageiro[] }) {
                     <div className="h-9 w-9 rounded-full bg-gradient-gold flex items-center justify-center text-primary-foreground text-xs font-bold">{p.nome.split(" ").map(w => w[0]).slice(0,2).join("")}</div>
                     <div>
                       <p className="font-medium flex items-center gap-1.5">{p.nome}{p.tag === "vip" && <Star className="h-3 w-3 text-primary fill-primary" />}</p>
-                      <p className="text-xs text-muted-foreground">{p.telefone || "—"}</p>
+                      {/* <p className="text-xs text-muted-foreground">{p.telefone || "—"}</p> */}
                     </div>
                   </div>
                 </td>
@@ -418,9 +480,18 @@ function PassageirosTable({ items }: { items: Passageiro[] }) {
                       <a href={waLink(p.whatsapp ?? p.telefone, `Oi ${p.nome.split(" ")[0]}!`) ?? "#"} target="_blank" rel="noreferrer">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-success"><MessageCircle className="h-4 w-4" /></Button>
                       </a>
-                    )}
-                    {p.telefone && <a href={`tel:${p.telefone}`}><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"><Phone className="h-4 w-4" /></Button></a>}
+                      )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => onDelete(p.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                    {/* {p.telefone && <a href={`tel:${p.telefone}`}><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary"><Phone className="h-4 w-4" /></Button></a>} */}
                   </div>
+                 
                 </td>
               </tr>
             ))}

@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 const STORAGE_KEY = "embarques_do_dia";
 const DATA_RESET_KEY = "embarques_data_reset";
@@ -323,13 +324,29 @@ const [filtroHorario, setFiltroHorario] = useState("");
 
 
 // ADICIONE ESSA FUNÇÃO ANTES DO useMemo()
-
 const converterHoraParaMinutos = (hora) => {
-  if (!hora || !hora.includes(":")) return 0;
+  // evita undefined, null, vazio e formatos inválidos
+  if (!hora || typeof hora !== "string") return 0;
 
-  const [h, m] = hora.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
+  // pega apenas HH:mm caso venha "14:30:00" ou datetime
+  const horaFormatada = hora.slice(0, 5);
+
+  // valida se realmente possui :
+  if (!horaFormatada.includes(":")) return 0;
+
+  const partes = horaFormatada.split(":");
+
+  if (partes.length < 2) return 0;
+
+  const h = Number(partes[0]);
+  const m = Number(partes[1]);
+
+  // evita NaN
+  if (isNaN(h) || isNaN(m)) return 0;
+
+  return h * 60 + m;
 };
+
 
 
 // SUBSTITUA seu embarquesFiltrados por esse:
@@ -462,117 +479,185 @@ const embarquesFiltrados = useMemo(() => {
 </Card>
 
         {/* lista */}
-        <div className="space-y-4">
-          {embarquesFiltrados.map((item) => {
-  const statusHorario = getStatusHorario(item.horaSaidaPrevista, item.passou);
+       <div className="space-y-3">
+  {embarquesFiltrados.map((item) => {
+    const statusHorario = getStatusHorario(
+      item.horaSaidaPrevista,
+      item.passou
+    );
 
-            return(
-                  <Card key={item.id}   className={`p-6 rounded-2xl transition-all ${
-        statusHorario === "atrasado"
-          ? "border-red-500 bg-red-500/10 shadow-lg shadow-red-500/20"
-          : statusHorario === "iminente"
-          ? "border-yellow-500 bg-yellow-500/10 animate-pulse"
-          : ""
-      }`}>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-2xl font-bold tracking-tight">
-                      {item.rota}
-                    </h3>
+    const calcularTempoRestante = (hora) => {
+  if (!hora || item.passou) return "Finalizado";
 
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Serviço #{item.servico}
-                    </p>
-                  </div>
+  const itemMin = converterHoraParaMinutos(hora);
 
-                  <div className="text-sm font-medium">
-                    {item.passou ? "✅ Concluído" : "⏳ Pendente"}
-                  </div>
-                </div>
+  // se vier inválido
+  if (!itemMin) return "--";
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border p-4 bg-muted/20">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                      Horário de Sistema
-                    </p>
+  const agora = new Date();
+  const atualMin =
+    agora.getHours() * 60 + agora.getMinutes();
 
-                    <p className="text-lg font-semibold">
-                      {item.horaSaidaPrevista || "--"}
-                    </p>
-                  </div>
+  const diff = itemMin - atualMin;
 
-                  <div className="rounded-2xl border p-4 bg-muted/20">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                      Aviso Oficial da Rodoviária
-                    </p>
+  if (diff < 0) return "Atrasado";
 
-                    <p className="text-lg font-semibold">
-                      {item.previsaoChegada || "--"}
-                    </p>
-                  </div>
-                </div>
+  const horas = Math.floor(diff / 60);
+  const minutos = diff % 60;
 
-                {item.passou && (
-                  <div className="rounded-2xl border p-4 bg-muted/30">
-                    <h4 className="font-semibold mb-3">
-                      Resumo do embarque concluído
-                    </h4>
+  if (horas > 0) {
+    return `Faltam ${horas}h ${minutos}min`;
+  }
 
-                    <div className="grid md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <strong>Hora de chegada</strong>
-                        <br />
-                        {item.horaReal || "--"}
-                      </div>
+  return `Faltam ${minutos}min`;
+};
 
-                      <div>
-                        <strong>Número do carro</strong>
-                        <br />
-                        {item.carro || "--"}
-                      </div>
+    return (
+      <details
+        key={item.id}
+        className={`rounded-2xl border transition-all overflow-hidden ${
+          statusHorario === "atrasado"
+            ? "border-red-500 bg-red-500/5"
+            : statusHorario === "iminente"
+            ? "border-yellow-500 bg-yellow-500/5"
+            : "border-border"
+        }`}
+      >
+        {/* CARD RESUMIDO */}
+        <summary className="list-none cursor-pointer p-4">
+          <div className="flex items-center justify-between gap-3">
+            {/* esquerda */}
+            <div className="min-w-0">
+              <h3 className="font-semibold text-base truncate">
+                {item.rota}
+              </h3>
 
-                      <div>
-                        <strong>Motorista</strong>
-                        <br />
-                        {item.motorista || "--"}
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-1">
+                <span>Serviço #{item.servico}</span>
+                <span>•</span>
+                <span>
+                  {item.horaSaidaPrevista || "--"}
+                </span>
+              </div>
+            </div>
+
+            {/* direita */}
+            <div className="text-right space-y-1">
+              <div
+                className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                  item.passou
+                    ? "bg-green-500/10 text-green-600"
+                    : "bg-yellow-500/10 text-yellow-600"
+                }`}
+              >
+                {item.passou ? "Concluído" : "Pendente"}
+              </div>
+
+              <p className="text-xs font-medium text-muted-foreground">
+                {calcularTempoRestante(
+                  item.horaSaidaPrevista
                 )}
+              </p>
+            </div>
+          </div>
+        </summary>
 
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => abrirModal(item)}
-                    className="rounded-xl"
-                  >
-                    {item.passou ? "Editar" : "Confirmar embarque"}
-                  </Button>
+        {/* DETALHES EXPANDIDOS */}
+        <div className="border-t p-4 space-y-4 bg-muted/10">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border p-3">
+              <p className="text-xs text-muted-foreground">
+                Horário Sistema
+              </p>
+              <p className="font-bold text-lg">
+                {item.horaSaidaPrevista || "--"}
+              </p>
+            </div>
 
-                  {item.passou && (
-                   <>
-                    <Button
-                      variant="outline"
-                      className="rounded-xl"
-                      onClick={() => excluirServico(item.id)}
-                    >
-                      Excluir serviço
-                    </Button>
-                    <Button
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={copymsg}
-                    >
-                    Copiar relatório completo
-                    </Button>
-                   </>
-                  )}
+            <div className="rounded-xl border p-3">
+              <p className="text-xs text-muted-foreground">
+                Aviso Rodoviária
+              </p>
+              <p className="font-bold text-lg">
+                {item.previsaoChegada || "--"}
+              </p>
+            </div>
+          </div>
+
+          {item.passou && (
+            <div className="rounded-xl border p-3">
+              <p className="font-semibold text-sm mb-2">
+                Resumo do embarque
+              </p>
+
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Chegada
+                  </p>
+                  <p className="font-semibold">
+                    {item.horaReal || "--"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Carro
+                  </p>
+                  <p className="font-semibold">
+                    {item.carro || "--"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Motorista
+                  </p>
+                  <p className="font-semibold">
+                    {item.motorista || "--"}
+                  </p>
                 </div>
               </div>
-            </Card>
-            )
-          })}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => abrirModal(item)}
+              className="rounded-lg"
+            >
+              {item.passou ? "Editar" : "Confirmar"}
+            </Button>
+
+            {item.passou && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={copymsg}
+                  className="rounded-lg"
+                >
+                  Relatório
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => excluirServico(item.id)}
+                  className="rounded-lg"
+                >
+                  Excluir
+                </Button>
+              </>
+            )}
+          </div>
         </div>
+      </details>
+    );
+  })}
+</div>
+        
       </div>
 
       {/* modal novo embarque */}
