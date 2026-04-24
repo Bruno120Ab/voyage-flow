@@ -41,12 +41,19 @@ const tagLabel: Record<Tag, string> = {
   vip: "VIP", recorrente: "Recorrente", retorno: "Retorno", inativo: "Inativo", quente: "Quente", novo: "Novo",
 };
 
+// Apenas 3 classificações expostas no cadastro (mapeadas pras tags internas)
+const formTags: { value: Tag; label: string }[] = [
+  { value: "quente", label: "Fechar venda" },
+  { value: "retorno", label: "Vender volta" },
+  { value: "inativo", label: "Inativo" },
+];
+
 const schema = z.object({
   nome: z.string().trim().min(2).max(120),
   telefone: z.string().trim().max(30).optional(),
   whatsapp: z.string().trim().max(30).optional(),
   cidade: z.string().trim().max(80).optional(),
-  tag: z.enum(["novo", "recorrente", "vip", "retorno", "inativo", "quente"]),
+  tag: z.enum(["quente", "retorno", "inativo"]),
   observacoes: z.string().max(500).optional(),
 });
 
@@ -78,7 +85,7 @@ export default function Passageiros() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"todos" | "fechar" | "volta" | "inativos">("fechar");
-  const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "novo" as Tag, observacoes: "" });
+  const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente" as Tag, observacoes: "" });
 
   const load = async () => {
     setLoading(true);
@@ -113,7 +120,7 @@ export default function Passageiros() {
     if (error) { toast.error(error.message); return; }
     toast.success("Passageiro cadastrado");
     setOpen(false);
-    setForm({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "novo", observacoes: "" });
+    setForm({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente", observacoes: "" });
     load();
   };
 
@@ -223,7 +230,7 @@ export default function Passageiros() {
                 <Select value={form.tag} onValueChange={(v: Tag) => setForm(f => ({...f, tag: v}))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(tagLabel) as Tag[]).map(t => <SelectItem key={t} value={t}>{tagLabel[t]}</SelectItem>)}
+                    {formTags.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
