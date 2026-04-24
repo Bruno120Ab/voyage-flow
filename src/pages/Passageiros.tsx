@@ -120,7 +120,7 @@ export default function Passageiros() {
     if (error) { toast.error(error.message); return; }
     toast.success("Passageiro cadastrado");
     setOpen(false);
-    setForm({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "novo", observacoes: "" });
+    setForm({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente", observacoes: "" });
     load();
   };
 
