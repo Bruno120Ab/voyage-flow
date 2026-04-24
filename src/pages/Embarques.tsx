@@ -145,7 +145,8 @@ export default function Embarques() {
 
   const toggleFlag = async (id: string, field: "vendido" | "comprovante_enviado" | "bilhete_impresso", val: boolean) => {
     setSelectedPax(prev => prev.map(p => p.id === id ? { ...p, [field]: val } : p));
-    const { error } = await supabase.from("embarque_passageiros").update({ [field]: val }).eq("id", id);
+    const patch = { [field]: val } as { vendido?: boolean; comprovante_enviado?: boolean; bilhete_impresso?: boolean };
+    const { error } = await supabase.from("embarque_passageiros").update(patch).eq("id", id);
     if (error) { toast.error(error.message); loadPax(selected!.id); }
   };
 
