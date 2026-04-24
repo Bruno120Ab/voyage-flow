@@ -38,7 +38,7 @@ const tagStyle: Record<Tag, string> = {
   novo: "bg-primary/10 text-primary border-primary/20",
 };
 const tagLabel: Record<Tag, string> = {
-  vip: "VIP", recorrente: "Recorrente", retorno: "Retorno", inativo: "Inativo", quente: "Quente", novo: "Novo",
+  vip: "VIP", recorrente: "Recorrente", retorno: "retorno", inativo: "Inativo", quente: "Quente", novo: "Novo",
 };
 
 // Apenas 3 classificações expostas no cadastro (mapeadas pras tags internas)
@@ -84,7 +84,7 @@ export default function Passageiros() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<"todos" | "fechar" | "volta" | "inativos">("fechar");
+  const [tab, setTab] = useState<"todos" | "fechar" | "retorno" | "inativos">("fechar");
   const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente" as Tag, observacoes: "" });
 
   const load = async () => {
@@ -200,7 +200,7 @@ export default function Passageiros() {
   const counts = {
     todos: items.length,
     fechar: fecharVenda.length,
-    volta: venderVolta.length,
+    retorno: venderVolta.length,
     inativos: inativos.length,
   };
 
@@ -246,7 +246,7 @@ export default function Passageiros() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={<Flame className="h-4 w-4" />} label="Fechar venda" value={counts.fechar} accent="text-destructive" active={tab === "fechar"} onClick={() => setTab("fechar")} />
-        <StatCard icon={<RotateCcw className="h-4 w-4" />} label="Vender volta" value={counts.volta} accent="text-warning" active={tab === "volta"} onClick={() => setTab("volta")} />
+        <StatCard icon={<RotateCcw className="h-4 w-4" />} label="Vender volta" value={counts.retorno} accent="text-warning" active={tab === "retorno"} onClick={() => setTab("retorno")} />
         <StatCard icon={<Snowflake className="h-4 w-4" />} label="Inativos" value={counts.inativos} accent="text-muted-foreground" active={tab === "inativos"} onClick={() => setTab("inativos")} />
         <StatCard icon={<Users className="h-4 w-4" />} label="Base total" value={counts.todos} accent="text-primary" active={tab === "todos"} onClick={() => setTab("todos")} />
       </div>
@@ -255,7 +255,7 @@ export default function Passageiros() {
         <Card className="glass-card p-3 flex items-center gap-3 flex-wrap">
           <TabsList className="bg-card-elevated/50">
             <TabsTrigger value="fechar"><Flame className="h-3.5 w-3.5 mr-1.5" />Fechar venda</TabsTrigger>
-            <TabsTrigger value="volta"><RotateCcw className="h-3.5 w-3.5 mr-1.5" />Vender volta</TabsTrigger>
+            <TabsTrigger value="retorno"><RotateCcw className="h-3.5 w-3.5 mr-1.5" />Vender retorno</TabsTrigger>
             <TabsTrigger value="inativos"><Snowflake className="h-3.5 w-3.5 mr-1.5" />Inativos</TabsTrigger>
             <TabsTrigger value="todos"><Users className="h-3.5 w-3.5 mr-1.5" />Todos</TabsTrigger>
           </TabsList>
@@ -270,7 +270,7 @@ export default function Passageiros() {
         ) : (
           <>
             <TabsContent value="fechar"><ActionGrid items={applySearch(fecharVenda)} emptyMsg="Nenhum lead em negociação. Bom momento pra prospectar!" /></TabsContent>
-            <TabsContent value="volta"><ActionGrid items={applySearch(venderVolta)} emptyMsg="Ninguém com ida sem retorno nos últimos 30 dias." /></TabsContent>
+            <TabsContent value="retorno"><ActionGrid items={applySearch(venderVolta)} emptyMsg="Ninguém com ida sem retorno nos últimos 30 dias." /></TabsContent>
             <TabsContent value="inativos"><ActionGrid items={applySearch(inativos)} emptyMsg="Sua base está aquecida — nenhum inativo." /></TabsContent>
             <TabsContent value="todos"><PassageirosTable items={applySearch(items)} /></TabsContent>
           </>
