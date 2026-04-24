@@ -41,12 +41,19 @@ const tagLabel: Record<Tag, string> = {
   vip: "VIP", recorrente: "Recorrente", retorno: "Retorno", inativo: "Inativo", quente: "Quente", novo: "Novo",
 };
 
+// Apenas 3 classificações expostas no cadastro (mapeadas pras tags internas)
+const formTags: { value: Tag; label: string }[] = [
+  { value: "quente", label: "Fechar venda" },
+  { value: "retorno", label: "Vender volta" },
+  { value: "inativo", label: "Inativo" },
+];
+
 const schema = z.object({
   nome: z.string().trim().min(2).max(120),
   telefone: z.string().trim().max(30).optional(),
   whatsapp: z.string().trim().max(30).optional(),
   cidade: z.string().trim().max(80).optional(),
-  tag: z.enum(["novo", "recorrente", "vip", "retorno", "inativo", "quente"]),
+  tag: z.enum(["quente", "retorno", "inativo"]),
   observacoes: z.string().max(500).optional(),
 });
 
