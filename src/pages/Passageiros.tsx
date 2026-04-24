@@ -130,17 +130,29 @@ export default function Passageiros() {
     const D30 = 30 * 24 * 60 * 60 * 1000;
     const D60 = 60 * 24 * 60 * 60 * 1000;
 
-    // Fechar venda: leads em negociação/aguardando
-    const fecharVenda: ActionItem[] = leads.map(l => ({
-      id: l.id,
-      nome: l.nome,
-      telefone: l.telefone,
-      whatsapp: l.whatsapp ?? l.telefone,
-      subtitle: l.destino ? `→ ${l.destino}` : "Negociação em aberto",
-      meta: l.valor_estimado > 0 ? `R$ ${Number(l.valor_estimado).toLocaleString("pt-BR")}` : "—",
-      msg: `Oi ${l.nome.split(" ")[0]}! Tudo bem? Passando pra confirmar se você quer fechar a viagem${l.destino ? ` para ${l.destino}` : ""}. Posso te garantir a vaga agora?`,
-      badge: { label: l.etapa === "aguardando" ? "Aguardando" : "Negociação", className: l.etapa === "aguardando" ? "bg-warning/15 text-warning border-warning/30" : "bg-primary/15 text-primary border-primary/30" },
-    }));
+    // Fechar venda: leads em negociação/aguardando + passageiros marcados como "quente"
+    const fecharVenda: ActionItem[] = [
+      ...leads.map(l => ({
+        id: `lead-${l.id}`,
+        nome: l.nome,
+        telefone: l.telefone,
+        whatsapp: l.whatsapp ?? l.telefone,
+        subtitle: l.destino ? `→ ${l.destino}` : "Negociação em aberto",
+        meta: l.valor_estimado > 0 ? `R$ ${Number(l.valor_estimado).toLocaleString("pt-BR")}` : "—",
+        msg: `Oi ${l.nome.split(" ")[0]}! Tudo bem? Passando pra confirmar se você quer fechar a viagem${l.destino ? ` para ${l.destino}` : ""}. Posso te garantir a vaga agora?`,
+        badge: { label: l.etapa === "aguardando" ? "Aguardando" : "Negociação", className: l.etapa === "aguardando" ? "bg-warning/15 text-warning border-warning/30" : "bg-primary/15 text-primary border-primary/30" },
+      })),
+      ...items.filter(p => p.tag === "quente").map(p => ({
+        id: `pax-${p.id}`,
+        nome: p.nome,
+        telefone: p.telefone,
+        whatsapp: p.whatsapp ?? p.telefone,
+        subtitle: p.cidade ? `${p.cidade}` : "Marcado para fechar venda",
+        meta: p.ticket_medio > 0 ? `Ticket R$ ${Number(p.ticket_medio).toLocaleString("pt-BR")}` : "—",
+        msg: `Oi ${p.nome.split(" ")[0]}! Tudo bem? Passando pra confirmar se você quer fechar a viagem. Posso te garantir a vaga agora?`,
+        badge: { label: "Fechar venda", className: "bg-destructive/15 text-destructive border-destructive/30" },
+      })),
+    ];
 
     // Vender volta: passageiros com viagem só de ida nos últimos 30 dias
     const idaSemVolta = new Map<string, { destino: string; origem: string; dias: number }>();
@@ -155,9 +167,11 @@ export default function Passageiros() {
       if (!prev || dias < prev.dias) idaSemVolta.set(ep.passageiro_id, { destino: e.destino, origem: e.origem, dias });
     }
     const venderVolta: ActionItem[] = [];
+    const jaIncluido = new Set<string>();
     for (const p of items) {
       const info = idaSemVolta.get(p.id);
       if (!info) continue;
+      jaIncluido.add(p.id);
       venderVolta.push({
         id: p.id,
         nome: p.nome,
@@ -166,6 +180,20 @@ export default function Passageiros() {
         subtitle: `Foi para ${info.destino} há ${info.dias} ${info.dias === 1 ? "dia" : "dias"}`,
         meta: `Sem retorno marcado`,
         msg: `Oi ${p.nome.split(" ")[0]}! Tudo bem? Vi aqui que você foi pra ${info.destino} e ainda não fechou a volta. Quer que eu garanta sua poltrona pro retorno?`,
+        badge: { label: "Vender volta", className: "bg-warning/15 text-warning border-warning/30" },
+      });
+    }
+    // Passageiros marcados manualmente como "retorno"
+    for (const p of items) {
+      if (p.tag !== "retorno" || jaIncluido.has(p.id)) continue;
+      venderVolta.push({
+        id: p.id,
+        nome: p.nome,
+        telefone: p.telefone,
+        whatsapp: p.whatsapp ?? p.telefone,
+        subtitle: p.cidade ? `${p.cidade}` : "Marcado para vender volta",
+        meta: p.ticket_medio > 0 ? `Ticket R$ ${Number(p.ticket_medio).toLocaleString("pt-BR")}` : "—",
+        msg: `Oi ${p.nome.split(" ")[0]}! Tudo bem? Quer que eu garanta sua poltrona pro retorno?`,
         badge: { label: "Vender volta", className: "bg-warning/15 text-warning border-warning/30" },
       });
     }
