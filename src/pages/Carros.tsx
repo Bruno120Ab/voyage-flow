@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Database } from "@/integrations/supabase/types";
 
 type EmbarqueDia = Database["public"]["Tables"]["embarques_dia"]["Row"];
@@ -24,6 +25,7 @@ export default function PaginaEmbarques() {
   const [novoModalOpen, setNovoModalOpen] = useState(false);
   const [embarqueSelecionado, setEmbarqueSelecionado] = useState<EmbarqueDia | null>(null);
   const [busca, setBusca] = useState("");
+  const [veiculos, setVeiculos] = useState<{placa: string, modelo: string}[]>([]);
 
   const agora = new Date();
 
@@ -41,6 +43,7 @@ export default function PaginaEmbarques() {
     cidadeDestino: "",
     horaSaidaPrevista: "",
     horaSaidaReal: "",
+    carro: "",
     prioridade: "Normal" as "Normal" | "Alta" | "Baixa",
   });
   const [idEditando, setIdEditando] = useState<string | null>(null);
@@ -58,6 +61,10 @@ export default function PaginaEmbarques() {
     } else {
       setEmbarques((data ?? []) as EmbarqueDia[]);
     }
+    
+    const { data: vData } = await supabase.from("veiculos").select("placa, modelo").order("placa");
+    if (vData) setVeiculos(vData);
+    
     setLoading(false);
   };
 
@@ -106,7 +113,7 @@ export default function PaginaEmbarques() {
 
   const abrirModalNovo = () => {
     setIdEditando(null);
-    setFormServico({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", prioridade: "Normal" });
+    setFormServico({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", carro: "--", prioridade: "Normal" });
     setNovoModalOpen(true);
   };
 
@@ -118,6 +125,7 @@ export default function PaginaEmbarques() {
       cidadeDestino: item.cidade_destino || "",
       horaSaidaPrevista: item.hora_saida_prevista || "",
       horaSaidaReal: item.hora_saida_real || "",
+      carro: item.carro || "--",
       prioridade: (item.prioridade as any) || "Normal",
     });
     setNovoModalOpen(true);
@@ -202,6 +210,7 @@ export default function PaginaEmbarques() {
         cidade_destino: formServico.cidadeDestino,
         hora_saida_prevista: formServico.horaSaidaPrevista,
         hora_saida_real: formServico.horaSaidaReal,
+        carro: formServico.carro && formServico.carro !== "--" ? formServico.carro : "--",
         previsao_chegada: previsao,
       }).eq("id", idEditando);
       
@@ -220,6 +229,7 @@ export default function PaginaEmbarques() {
         cidade_destino: formServico.cidadeDestino,
         hora_saida_prevista: formServico.horaSaidaPrevista,
         hora_saida_real: formServico.horaSaidaReal,
+        carro: formServico.carro && formServico.carro !== "--" ? formServico.carro : "--",
         previsao_chegada: previsao,
         prioridade: formServico.prioridade,
         data_operacao: hojeOperacao,
@@ -507,11 +517,14 @@ export default function PaginaEmbarques() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Número / Placa do Carro</Label>
-                <div className="relative">
-                  <Bus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-9 bg-background/50" placeholder="Ex: 1024" value={form.carro} onChange={(e) => setForm({ ...form, carro: e.target.value })} />
-                </div>
+                <Label>Veículo Escalado (Frota)</Label>
+                <Select value={form.carro || "--"} onValueChange={(v) => setForm({ ...form, carro: v })}>
+                  <SelectTrigger className="bg-background/50"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="--">A definir</SelectItem>
+                    {veiculos.map(v => <SelectItem key={v.placa} value={v.placa}>{v.placa} — {v.modelo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

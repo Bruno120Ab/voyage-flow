@@ -18,6 +18,7 @@ interface Veiculo {
   id: string; placa: string; modelo: string; capacidade: number;
   motorista_nome: string | null; status: VStatus; observacoes: string | null;
   embarques?: { id: string; origem: string; destino: string; data_saida: string; status: string }[];
+  servicos?: { id: string; servico: string; rota: string; data_operacao: string; hora_saida_prevista: string | null }[];
 }
 
 const statusStyle: Record<VStatus, string> = {
@@ -85,7 +86,16 @@ export default function Frota() {
     setLoading(true);
     const { data, error } = await supabase.from("veiculos").select("*, embarques(id, origem, destino, data_saida, status)").order("created_at", { ascending: false });
     if (error) toast.error(error.message);
-    setItems((data as Veiculo[]) ?? []);
+    
+    const hoje = new Date().toISOString().slice(0, 10);
+    const { data: sData } = await supabase.from("embarques_dia").select("*").eq("data_operacao", hoje).eq("passou", false);
+    
+    const veiculosFinal = (data as Veiculo[])?.map(v => ({
+      ...v,
+      servicos: (sData || []).filter((s: any) => s.carro === v.placa)
+    })) || [];
+    
+    setItems(veiculosFinal);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -335,6 +345,20 @@ export default function Frota() {
                                   </div>
                                 )
                               })}
+                          </div>
+                        </div>
+                      )}
+
+                      {v.servicos && v.servicos.length > 0 && (
+                        <div className="pt-3 border-t border-border/50">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-2 flex items-center gap-1.5"><Bus className="h-3 w-3" /> Serviços Diários (Frotas)</p>
+                          <div className="space-y-1.5">
+                            {v.servicos.map(serv => (
+                                <div key={serv.id} className="flex justify-between items-center bg-secondary/30 rounded-md p-1.5 px-2.5">
+                                  <span className="text-xs font-medium">#{serv.servico} <span className="text-muted-foreground font-normal ml-1">{serv.rota.split(" → ")[1] || serv.rota}</span></span>
+                                  <span className="text-[10px] text-muted-foreground font-semibold text-primary">{serv.hora_saida_prevista || "--"}</span>
+                                </div>
+                            ))}
                           </div>
                         </div>
                       )}

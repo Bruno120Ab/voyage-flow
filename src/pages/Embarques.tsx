@@ -60,10 +60,11 @@ interface Meta {
   rota: "descida" | "subida" | "nenhuma";
   classe?: string;
   comodidades?: string[];
+  servico_id?: string;
 }
 
 const parseMeta = (obs: string | null): Meta => {
-  if (!obs) return { observacoes: "", rota: "nenhuma", classe: "Convencional", comodidades: [] };
+  if (!obs) return { observacoes: "", rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none" };
   try {
     const data = JSON.parse(obs);
     if (data.isJsonMeta) {
@@ -72,10 +73,11 @@ const parseMeta = (obs: string | null): Meta => {
         rota: data.rota || "nenhuma",
         classe: data.classe || "Convencional",
         comodidades: data.comodidades || [],
+        servico_id: data.servico_id || "none",
       };
     }
   } catch (e) {}
-  return { observacoes: obs, rota: "nenhuma", classe: "Convencional", comodidades: [] };
+  return { observacoes: obs, rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none" };
 };
 
 const schema = z.object({
@@ -101,6 +103,7 @@ const waLink = (phone: string | null, msg: string) => {
 export default function Embarques() {
   const [items, setItems] = useState<Embarque[]>([]);
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
+  const [servicos, setServicos] = useState<any[]>([]);
   const [allPax, setAllPax] = useState<Passageiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -116,21 +119,23 @@ export default function Embarques() {
     origem: "", destino: "", local_embarque: "",
     data_saida: "", data_retorno: "",
     valor_operacao: "0", custo_operacao: "0",
-    veiculo_id: "none", status: "rascunho" as EStatus, observacoes: "",
+    veiculo_id: "none", servico_id: "none", status: "rascunho" as EStatus, observacoes: "",
     rota: "nenhuma",
   });
 
   const load = async () => {
     setLoading(true);
-    const [{ data: emb, error }, { data: vs }, { data: ps }] = await Promise.all([
+    const [{ data: emb, error }, { data: vs }, { data: ps }, { data: servs }] = await Promise.all([
       supabase.from("embarques").select("*, veiculos(placa, modelo, observacoes)").order("data_saida", { ascending: true }),
       supabase.from("veiculos").select("id, placa, modelo, observacoes").order("placa"),
       supabase.from("passageiros").select("id, nome, telefone, whatsapp").order("nome"),
+      supabase.from("embarques_dia").select("id, servico, rota, carro, data_operacao").order("data_operacao", { ascending: false }),
     ]);
     if (error) toast.error(error.message);
     setItems((emb as any) ?? []);
     setVeiculos((vs as Veiculo[]) ?? []);
     setAllPax((ps as Passageiro[]) ?? []);
+    setServicos(servs ?? []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -158,6 +163,7 @@ export default function Embarques() {
       valor_operacao: String(e.valor_operacao),
       custo_operacao: String(e.custo_operacao),
       veiculo_id: e.veiculo_id || "none",
+      servico_id: meta.servico_id || "none",
       status: e.status,
       observacoes: meta.observacoes,
       rota: meta.rota,
@@ -183,7 +189,17 @@ export default function Embarques() {
       isJsonMeta: true,
       observacoes: form.observacoes,
       rota: form.rota,
+      servico_id: form.servico_id !== "none" ? form.servico_id : undefined,
     });
+    
+    let resolvedVeiculoId = form.veiculo_id && form.veiculo_id !== "none" ? form.veiculo_id : null;
+    if (form.servico_id !== "none") {
+      const selectedServico = servicos.find(s => s.id === form.servico_id);
+      if (selectedServico && selectedServico.carro) {
+        const matchingVeiculo = veiculos.find(v => v.placa === selectedServico.carro);
+        if (matchingVeiculo) resolvedVeiculoId = matchingVeiculo.id;
+      }
+    }
 
     const payload = {
       origem: parsed.data.origem,
@@ -193,7 +209,7 @@ export default function Embarques() {
       data_retorno: parsed.data.data_retorno ? new Date(parsed.data.data_retorno).toISOString() : null,
       valor_operacao: parsed.data.valor_operacao,
       custo_operacao: parsed.data.custo_operacao,
-      veiculo_id: form.veiculo_id && form.veiculo_id !== "none" ? form.veiculo_id : null,
+      veiculo_id: resolvedVeiculoId,
       status: parsed.data.status,
       observacoes: obsJson,
     };
@@ -216,7 +232,7 @@ export default function Embarques() {
 
   const resetForm = () => {
     setEditingId(null);
-    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "none", status: "rascunho", observacoes: "", rota: "nenhuma" });
+    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "none", servico_id: "none", status: "rascunho", observacoes: "", rota: "nenhuma" });
   };
 
   const openDetails = (e: Embarque) => {
@@ -305,12 +321,15 @@ export default function Embarques() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <Label>Frota / Veículo escalado</Label>
-                  <Select value={form.veiculo_id} onValueChange={(v) => setForm(f => ({...f, veiculo_id: v}))}>
-                    <SelectTrigger><SelectValue placeholder="Selecionar veículo" /></SelectTrigger>
+                  <Label>Serviço / Frota escalada</Label>
+                  <Select value={form.servico_id} onValueChange={(v) => setForm(f => ({...f, servico_id: v}))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar serviço" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Nenhum veículo definido ainda</SelectItem>
-                      {veiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+                      <SelectItem value="none">Nenhum serviço definido ainda</SelectItem>
+                      {servicos.map(s => {
+                        const dateStr = s.data_operacao ? new Date(s.data_operacao).toLocaleDateString("pt-BR") : "";
+                        return <SelectItem key={s.id} value={s.id}>Serviço #{s.servico} — {s.rota.split(" → ")[1] || s.rota} ({dateStr})</SelectItem>
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -381,7 +400,7 @@ export default function Embarques() {
                     <h3 className="font-display font-semibold">Saindo hoje — não esqueça!</h3>
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {stats.hoje.map(e => <EmbCard key={e.id} e={e} onClick={() => openDetails(e)} />)}
+                    {stats.hoje.map(e => <EmbCard key={e.id} e={e} servicos={servicos} onClick={() => openDetails(e)} />)}
                   </div>
                 </Card>
               )}
@@ -392,7 +411,7 @@ export default function Embarques() {
                   <Card className="glass-card p-8 text-center text-muted-foreground">Nenhum embarque agendado.</Card>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {proximas.map(e => <EmbCard key={e.id} e={e} onClick={() => openDetails(e)} />)}
+                    {proximas.map(e => <EmbCard key={e.id} e={e} servicos={servicos} onClick={() => openDetails(e)} />)}
                   </div>
                 )}
               </div>
@@ -410,7 +429,7 @@ export default function Embarques() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {listItems.map(e => <EmbCard key={e.id} e={e} onClick={() => openDetails(e)} onEdit={handleEdit} onDelete={handleDelete} detailed />)}
+                  {listItems.map(e => <EmbCard key={e.id} e={e} servicos={servicos} onClick={() => openDetails(e)} onEdit={handleEdit} onDelete={handleDelete} detailed />)}
                 </div>
               )}
             </TabsContent>
@@ -427,6 +446,23 @@ export default function Embarques() {
                 <p className="text-sm text-muted-foreground">{new Date(selected.data_saida).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" })}</p>
               </SheetHeader>
               <div className="space-y-4 mt-4">
+                {(() => {
+                   const sMeta = parseMeta(selected.observacoes);
+                   const sServico = servicos.find(s => s.id === sMeta.servico_id);
+                   if (!sServico) return null;
+                   return (
+                     <Card className="glass-card p-4 bg-primary/5 border-primary/20">
+                       <h4 className="font-display font-semibold flex items-center gap-2 mb-3"><Calendar className="h-4 w-4 text-primary" /> Informações do Serviço</h4>
+                       <div className="grid grid-cols-2 gap-3 text-sm">
+                         <div><p className="text-muted-foreground text-[11px] uppercase font-bold tracking-wider">Nº Serviço</p><p className="font-medium">#{sServico.servico}</p></div>
+                         <div><p className="text-muted-foreground text-[11px] uppercase font-bold tracking-wider">Carro escalado</p><p className="font-medium">{sServico.carro && sServico.carro !== "--" ? sServico.carro : "A definir"}</p></div>
+                         <div className="col-span-2"><p className="text-muted-foreground text-[11px] uppercase font-bold tracking-wider">Rota Operacional</p><p className="font-medium">{sServico.rota}</p></div>
+                         <div><p className="text-muted-foreground text-[11px] uppercase font-bold tracking-wider">Data de Operação</p><p className="font-medium">{new Date(sServico.data_operacao).toLocaleDateString("pt-BR")}</p></div>
+                       </div>
+                     </Card>
+                   );
+                })()}
+                
                 <Card className="glass-card p-3 flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">Status</p>
@@ -503,11 +539,12 @@ function Stat({ icon, label, value, accent }: { icon: React.ReactNode; label: st
   );
 }
 
-function EmbCard({ e, onClick, onEdit, onDelete, detailed = false }: { e: Embarque; onClick: () => void; onEdit?: (e: Embarque) => void; onDelete?: (id: string) => void; detailed?: boolean }) {
+function EmbCard({ e, servicos, onClick, onEdit, onDelete, detailed = false }: { e: Embarque; servicos?: any[]; onClick: () => void; onEdit?: (e: Embarque) => void; onDelete?: (id: string) => void; detailed?: boolean }) {
   const lucro = Number(e.valor_operacao) - Number(e.custo_operacao);
   const dt = new Date(e.data_saida);
   const meta = parseMeta(e.observacoes);
   const vMeta = parseMeta(e.veiculos?.observacoes || null);
+  const linkedServico = servicos?.find(s => s.id === meta.servico_id);
 
   return (
     <Card className="glass-card flex flex-col sm:flex-row overflow-hidden hover:border-primary/40 transition-all group">
@@ -541,6 +578,12 @@ function EmbCard({ e, onClick, onEdit, onDelete, detailed = false }: { e: Embarq
             ) : (
               <div className="flex items-center gap-1.5 text-muted-foreground bg-warning/10 text-warning px-2 py-1 rounded-md text-xs">
                 <AlertCircle className="h-3.5 w-3.5" /> <span className="font-medium">Sem veículo</span>
+              </div>
+            )}
+
+            {linkedServico && (
+              <div className="flex items-center gap-1.5 text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
+                <Calendar className="h-3.5 w-3.5" /> <span className="font-medium text-foreground text-xs">Serviço #{linkedServico.servico}</span>
               </div>
             )}
             
