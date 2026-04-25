@@ -594,7 +594,7 @@ function CalendarView({ items, month, setMonth, onPick }: { items: Embarque[]; m
   const daysInMonth = new Date(year, m + 1, 0).getDate();
 
   const byDay = useMemo(() => {
-    const map = new Map<number, Embarque[]>();
+    const map: Map<number, Embarque[]> = new Map();
     items.forEach(e => {
       const d = new Date(e.data_saida);
       if (d.getFullYear() === year && d.getMonth() === m) {
