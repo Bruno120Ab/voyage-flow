@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      contatos: {
+        Row: {
+          cidade: string | null
+          created_at: string
+          created_by: string | null
+          horario: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          prioridade: Database["public"]["Enums"]["contato_prioridade"]
+          responsavel: string | null
+          setor: string | null
+          telefone: string | null
+          tipo: Database["public"]["Enums"]["contato_tipo"]
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          created_at?: string
+          created_by?: string | null
+          horario?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          prioridade?: Database["public"]["Enums"]["contato_prioridade"]
+          responsavel?: string | null
+          setor?: string | null
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["contato_tipo"]
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          created_at?: string
+          created_by?: string | null
+          horario?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          prioridade?: Database["public"]["Enums"]["contato_prioridade"]
+          responsavel?: string | null
+          setor?: string | null
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["contato_tipo"]
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       embarque_passageiros: {
         Row: {
           bilhete_impresso: boolean
@@ -444,6 +495,8 @@ export type Database = {
         | "financeiro"
         | "operacional"
         | "motorista"
+      contato_prioridade: "Urgente" | "Alta" | "Normal"
+      contato_tipo: "setor" | "agencia"
       embarque_dia_prioridade: "Normal" | "Alta" | "Baixa"
       embarque_dia_status: "pendente" | "concluido"
       embarque_status:
@@ -599,6 +652,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "vendedor", "financeiro", "operacional", "motorista"],
+      contato_prioridade: ["Urgente", "Alta", "Normal"],
+      contato_tipo: ["setor", "agencia"],
       embarque_dia_prioridade: ["Normal", "Alta", "Baixa"],
       embarque_dia_status: ["pendente", "concluido"],
       embarque_status: [
