@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Phone, Building2, Users, Search, MessageCircle, Clock, Landmark, Loader2, Pencil, Trash2,
+  Share2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -44,6 +45,51 @@ export default function PaginaContatos() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [salvando, setSalvando] = useState(false);
+  
+  const compartilharContato = async (item: Contato) => {
+    const texto = `📋 Contato Importante
+
+  👤 Nome: ${item.nome}
+  ${item.responsavel ? `👔 Responsável: ${item.responsavel}` : ""}
+  ${item.setor ? `🏢 Setor: ${item.setor}` : ""}
+  ${item.cidade ? `📍 Cidade: ${item.cidade}` : ""}
+  ${item.horario ? `⏰ Horário: ${item.horario}` : ""}
+  ${item.telefone ? `📞 Telefone: ${item.telefone}` : ""}
+  ${item.whatsapp ? `💬 WhatsApp: ${item.whatsapp}` : ""}
+  ⭐ Prioridade: ${item.prioridade}
+  `;
+
+    try {
+      // Compartilhamento nativo (celular principalmente)
+      if (navigator.share) {
+        await navigator.share({
+          title: "Contato Importante",
+          text: texto,
+        });
+        return;
+      }
+
+      // Clipboard seguro
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(texto);
+        alert("Informações copiadas!");
+        return;
+      }
+
+      // Fallback universal
+      const textArea = document.createElement("textarea");
+      textArea.value = texto;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+
+      alert("Informações copiadas!");
+    } catch (error) {
+      console.error("Erro ao compartilhar:", error);
+      alert("Não foi possível compartilhar.");
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -151,46 +197,145 @@ export default function PaginaContatos() {
     return "secondary";
   };
 
-  const CardContato = ({ item }: { item: Contato }) => (
-    <Card className="rounded-2xl border shadow-sm hover:shadow-md transition-all">
-      <CardContent className="p-5 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-base truncate">{item.nome}</h3>
-            {item.responsavel && (
-              <p className="text-sm text-muted-foreground mt-1">{item.responsavel}</p>
-            )}
+  // const CardContato = ({ item }: { item: Contato }) => (
+  //   <Card className="rounded-2xl border shadow-sm hover:shadow-md transition-all">
+  //     <CardContent className="p-5 space-y-4">
+  //       <div className="flex items-start justify-between gap-3">
+  //         <div className="min-w-0">
+  //           <h3 className="font-semibold text-base truncate">{item.nome}</h3>
+  //           {item.responsavel && (
+  //             <p className="text-sm text-muted-foreground mt-1">{item.responsavel}</p>
+  //           )}
+  //         </div>
+  //         <div className="flex items-center gap-1">
+  //           <Badge variant={badgeStyle(item.prioridade)}>{item.prioridade}</Badge>
+  //         </div>
+  //       </div>
+
+  //       <div className="space-y-2 text-sm">
+  //         {item.setor && <div className="flex items-center gap-2"><Building2 className="w-4 h-4" /><span>{item.setor}</span></div>}
+  //         {item.cidade && <div className="flex items-center gap-2"><Users className="w-4 h-4" /><span>{item.cidade}</span></div>}
+  //         {item.horario && <div className="flex items-center gap-2"><Clock className="w-4 h-4" /><span>{item.horario}</span></div>}
+  //         {item.telefone && <div className="flex items-center gap-2 font-medium"><Phone className="w-4 h-4" /><span>{item.telefone}</span></div>}
+  //       </div>
+
+  //       <div className="flex gap-2 pt-2">
+  //         <Button className="flex-1 rounded-xl" size="sm" onClick={() => ligar(item.telefone)}>
+  //           <Phone className="w-4 h-4 mr-2" /> Ligar
+  //         </Button>
+  //         <Button variant="outline" size="sm" className="rounded-xl" onClick={() => whats(item.whatsapp || item.telefone)}>
+  //           <MessageCircle className="w-4 h-4" />
+  //         </Button>
+  //         <Button variant="outline" size="sm" className="rounded-xl" onClick={() => abrirEdicao(item)}>
+  //           <Pencil className="w-4 h-4" />
+  //         </Button>
+  //         <Button variant="outline" size="sm" className="rounded-xl text-destructive" onClick={() => excluir(item.id)}>
+  //           <Trash2 className="w-4 h-4" />
+  //         </Button>
+  //       </div>
+  //     </CardContent>
+  //   </Card>
+  // );
+
+
+const CardContato = ({ item }: { item: Contato }) => (
+  <Card className="rounded-2xl border shadow-sm hover:shadow-md transition-all">
+    <CardContent className="p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-base truncate">{item.nome}</h3>
+          {item.responsavel && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {item.responsavel}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Badge variant={badgeStyle(item.prioridade)}>
+            {item.prioridade}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="space-y-2 text-sm">
+        {item.setor && (
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
+            <span>{item.setor}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Badge variant={badgeStyle(item.prioridade)}>{item.prioridade}</Badge>
+        )}
+
+        {item.cidade && (
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <span>{item.cidade}</span>
           </div>
-        </div>
+        )}
 
-        <div className="space-y-2 text-sm">
-          {item.setor && <div className="flex items-center gap-2"><Building2 className="w-4 h-4" /><span>{item.setor}</span></div>}
-          {item.cidade && <div className="flex items-center gap-2"><Users className="w-4 h-4" /><span>{item.cidade}</span></div>}
-          {item.horario && <div className="flex items-center gap-2"><Clock className="w-4 h-4" /><span>{item.horario}</span></div>}
-          {item.telefone && <div className="flex items-center gap-2 font-medium"><Phone className="w-4 h-4" /><span>{item.telefone}</span></div>}
-        </div>
+        {item.horario && (
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            <span>{item.horario}</span>
+          </div>
+        )}
 
-        <div className="flex gap-2 pt-2">
-          <Button className="flex-1 rounded-xl" size="sm" onClick={() => ligar(item.telefone)}>
-            <Phone className="w-4 h-4 mr-2" /> Ligar
-          </Button>
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => whats(item.whatsapp || item.telefone)}>
-            <MessageCircle className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => abrirEdicao(item)}>
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="rounded-xl text-destructive" onClick={() => excluir(item.id)}>
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        {item.telefone && (
+          <div className="flex items-center gap-2 font-medium">
+            <Phone className="w-4 h-4" />
+            <span>{item.telefone}</span>
+          </div>
+        )}
+      </div>
 
+      <div className="flex gap-2 pt-2">
+        <Button
+          className="flex-1 rounded-xl"
+          size="sm"
+          onClick={() => ligar(item.telefone)}
+        >
+          <Phone className="w-4 h-4 mr-2" /> Ligar
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl"
+          onClick={() => whats(item.whatsapp || item.telefone)}
+        >
+          <MessageCircle className="w-4 h-4" />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl"
+          onClick={() => compartilharContato(item)}
+        >
+          <Share2 className="w-4 h-4" />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl"
+          onClick={() => abrirEdicao(item)}
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl text-destructive"
+          onClick={() => excluir(item.id)}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+);
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">

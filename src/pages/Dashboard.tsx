@@ -122,7 +122,7 @@ export default function Dashboard() {
     <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
       <div className="relative overflow-hidden rounded-2xl bg-gradient-hero border border-border p-8">
         <div className="absolute inset-0 bg-gradient-glow opacity-60" />
-        <div className="relative flex items-center justify-between flex-wrap gap-4">
+        {/* <div className="relative flex items-center justify-between flex-wrap gap-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-primary/80 font-medium mb-2">Painel Consolidado</p>
             <h1 className="font-display text-3xl lg:text-4xl font-bold">Olá, {profile?.nome?.split(" ")[0] || "agente"} 👋</h1>
@@ -134,7 +134,54 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground">Hoje</p>
             <p className="font-display font-semibold text-lg">{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</p>
           </div>
-        </div>
+        </div> */}
+        <div className="relative flex items-center justify-between flex-wrap gap-4">
+  <div>
+    <p className="text-xs uppercase tracking-widest text-primary/80 font-medium mb-2">
+      Painel Consolidado
+    </p>
+
+    <h1 className="font-display text-3xl lg:text-4xl font-bold">
+      Olá, {profile?.nome?.split(" ")[0] || "agente"} 👋
+    </h1>
+
+    <p className="text-muted-foreground mt-2 max-w-xl">
+      Você tem{" "}
+      <span className="text-foreground font-medium">
+        {stats.proximos.length} embarques próximos
+      </span>{" "}
+      e{" "}
+      <span className="text-foreground font-medium">
+        {stats.leadsAtivos} leads
+      </span>{" "}
+      em andamento.
+    </p>
+
+    {/* Botão para plataforma de vendas */}
+<div className="mt-4">
+  <a
+    href="https://sua-plataforma-de-vendas.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center text-sm font-medium text-primary hover:opacity-80 transition-opacity"
+  >
+    Epass →
+  </a>
+</div>
+
+  </div>
+
+  <div className="text-right">
+    <p className="text-xs text-muted-foreground">Hoje</p>
+    <p className="font-display font-semibold text-lg">
+      {new Date().toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+      })}
+    </p>
+  </div>
+</div>
       </div>
 
       <div>
@@ -187,6 +234,7 @@ export default function Dashboard() {
               <p className="text-[11px] text-muted-foreground mt-2">Nenhum pendente</p>
             )}
           </Card>
+          
         </div>
       </div>
 

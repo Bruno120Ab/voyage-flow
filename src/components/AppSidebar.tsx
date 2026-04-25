@@ -1,4 +1,4 @@
-import { LayoutDashboard, Bus, CalendarDays, Users, KanbanSquare, Sparkles, Wallet, BarChart3, MessageCircle, Settings, Plane, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Bus, CalendarDays, Users, KanbanSquare, Sparkles, Wallet, BarChart3, MessageCircle, Settings, Plane, ShieldCheck, Route, MapPinned, PackageSearch } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -8,10 +8,11 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const main = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  // { title: "Frota", url: "/frota", icon: Bus },
+  { title: "Carros", url: "/frota", icon: Bus },
   { title: "Embarques", url: "/embarques", icon: CalendarDays },
-  { title: "Entregas", url: "/entregas", icon: CalendarDays },
-  { title: "Frotas", url: "/PaginaEmbarques", icon: Bus },
+  { title: "Entregas", url: "/entregas", icon: PackageSearch },
+  { title: "Frotas", url: "/PaginaEmbarques", icon: MapPinned },
+  { title: "Trafego", url: "/trafego", icon: Route },
   { title: "Clientes", url: "/passageiros", icon: Users },
   { title: "CRM / Funil", url: "/crm", icon: KanbanSquare },
   { title: "Prospecção", url: "/prospeccao", icon: Sparkles },

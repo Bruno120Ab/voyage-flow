@@ -22,6 +22,7 @@ import PaginaEmbarques from "./pages/Carros.tsx";
 import PaginaContatos from "./pages/Contatos.tsx";
 import PaginaEncomendas from "./pages/Entregas.tsx";
 import Financeiro from "./pages/Financeiro.tsx";
+import NHIntelligencePage from "./pages/Trafego.tsx";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/aguardando" element={<Aguardando />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/frota" element={protectedLayout(<Frota />)} />
+            <Route path="/trafego" element={protectedLayout(<NHIntelligencePage />)} />
             <Route path="/PaginaEmbarques" element={protectedLayout(<PaginaEmbarques />)} />
             <Route path="/embarques" element={protectedLayout(<Embarques />)} />
             <Route path="/entregas" element={protectedLayout(<PaginaEncomendas />)} />
@@ -63,3 +65,4 @@ const App = () => (
 );
 
 export default App;
+
