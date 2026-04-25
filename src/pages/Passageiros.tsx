@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Phone, MessageCircle, Search, Plus, Star, Loader2, Users, Flame, RotateCcw, Snowflake, ArrowRight } from "lucide-react";
+import { Phone, MessageCircle, Search, Plus, Star, Loader2, Users, Flame, RotateCcw, Snowflake, ArrowRight, Edit2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -56,6 +56,7 @@ const schema = z.object({
   cidade: z.string().trim().max(80).optional(),
   tag: z.enum(["quente", "retorno", "inativo"]),
   observacoes: z.string().max(500).optional(),
+  valor_compra: z.string().optional(),
 });
 
 const onlyDigits = (s: string | null) => (s ?? "").replace(/\D/g, "");
@@ -87,6 +88,8 @@ type ActionItem = {
   valorVenda?: number;
   comissao?: number;
   badge?: { label: string; className: string };
+  observacoes?: string | null;
+  ticket?: number;
 };
 const getComissao = (valor: number) => valor * 0.08;
 
@@ -100,7 +103,8 @@ export default function Passageiros() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"todos" | "fechar" | "retorno" | "inativos">("fechar");
-  const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente" as Tag, observacoes: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente" as Tag, observacoes: "", valor_compra: "" });
 
   const handleDelete = async (id: string) => {
     const confirm = window.confirm("Tem certeza que deseja deletar este passageiro?");
@@ -143,23 +147,55 @@ export default function Passageiros() {
   
   useEffect(() => { load(); }, []);
 
+  const handleEdit = (p: Passageiro) => {
+    setEditingId(p.id);
+    setForm({
+      nome: p.nome,
+      telefone: p.telefone || "",
+      whatsapp: p.whatsapp || "",
+      cidade: p.cidade || "",
+      tag: p.tag,
+      observacoes: p.observacoes || "",
+      valor_compra: p.ticket_medio ? String(p.ticket_medio) : "",
+    });
+    setOpen(true);
+  };
+
   const handleSave = async () => {
     const parsed = schema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
     setSaving(true);
-    const { error } = await supabase.from("passageiros").insert({
+    
+    const ticketValue = parsed.data.valor_compra ? parseFloat(parsed.data.valor_compra.replace(/\./g, '').replace(',', '.')) || 0 : 0;
+
+    const payload = {
       nome: parsed.data.nome,
       telefone: parsed.data.telefone || null,
       whatsapp: parsed.data.whatsapp || parsed.data.telefone || null,
       cidade: parsed.data.cidade || null,
       tag: parsed.data.tag,
       observacoes: parsed.data.observacoes || null,
-    });
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Passageiro cadastrado");
+      ticket_medio: ticketValue,
+    };
+
+    if (editingId) {
+      const { error } = await supabase.from("passageiros").update(payload).eq("id", editingId);
+      setSaving(false);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Passageiro atualizado");
+    } else {
+      const { error } = await supabase.from("passageiros").insert({
+        ...payload,
+        total_viagens: ticketValue > 0 ? 1 : 0,
+      });
+      setSaving(false);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Passageiro cadastrado");
+    }
+
     setOpen(false);
-    setForm({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente", observacoes: "" });
+    setEditingId(null);
+    setForm({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente", observacoes: "", valor_compra: "" });
     load();
   };
 
@@ -180,6 +216,8 @@ export default function Passageiros() {
         meta: l.valor_estimado > 0 ? `R$ ${Number(l.valor_estimado).toLocaleString("pt-BR")}` : "—",
         msg: `Oi ${l.nome.split(" ")[0]}! Tudo bem? Passando pra confirmar se você quer fechar a viagem${l.destino ? ` para ${l.destino}` : ""}. Posso te garantir a vaga agora?`,
         badge: { label: l.etapa === "aguardando" ? "Aguardando" : "Negociação", className: l.etapa === "aguardando" ? "bg-warning/15 text-warning border-warning/30" : "bg-primary/15 text-primary border-primary/30" },
+        observacoes: l.observacoes,
+        ticket: l.valor_estimado,
       })),
       ...items.filter(p => p.tag === "quente").map(p => ({
         id: `pax-${p.id}`,
@@ -190,6 +228,8 @@ export default function Passageiros() {
         meta: p.ticket_medio > 0 ? `Ticket R$ ${Number(p.ticket_medio).toLocaleString("pt-BR")}` : "—",
         msg: `Oi ${p.nome.split(" ")[0]}! Tudo bem? Passando pra confirmar se você quer fechar a viagem. Posso te garantir a vaga agora?`,
         badge: { label: "Fechar venda", className: "bg-destructive/15 text-destructive border-destructive/30" },
+        observacoes: p.observacoes,
+        ticket: p.ticket_medio,
       })),
     ];
 
@@ -220,6 +260,8 @@ export default function Passageiros() {
         meta: `Sem retorno marcado`,
         msg: `Oi ${p.nome.split(" ")[0]}! Tudo bem? Vi aqui que você foi pra ${info.destino} e ainda não fechou a volta. Quer que eu garanta sua poltrona pro retorno?`,
         badge: { label: "Vender volta", className: "bg-warning/15 text-warning border-warning/30" },
+        observacoes: p.observacoes,
+        ticket: p.ticket_medio,
       });
     }
     // Passageiros marcados manualmente como "retorno"
@@ -234,6 +276,8 @@ export default function Passageiros() {
         meta: p.ticket_medio > 0 ? `Ticket R$ ${Number(p.ticket_medio).toLocaleString("pt-BR")}` : "—",
         msg: `Oi ${p.nome.split(" ")[0]}! Tudo bem? Quer que eu garanta sua poltrona pro retorno?`,
         badge: { label: "Vender volta", className: "bg-warning/15 text-warning border-warning/30" },
+        observacoes: p.observacoes,
+        ticket: p.ticket_medio,
       });
     }
 
@@ -255,6 +299,8 @@ export default function Passageiros() {
           meta: `${p.total_viagens} viagens`,
           msg: `Oi ${p.nome.split(" ")[0]}! Faz um tempo que não viajamos juntos. Tô com novas excursões saindo, posso te mandar os destinos e datas?`,
           badge: { label: tagLabel[p.tag], className: tagStyle[p.tag] },
+          observacoes: p.observacoes,
+          ticket: p.ticket_medio,
         };
       });
 
@@ -279,12 +325,18 @@ export default function Passageiros() {
           <h1 className="font-display text-3xl font-bold">Quem precisa de ação hoje</h1>
           <p className="text-muted-foreground mt-1">Leads para fechar, retornos pendentes e base inativa — tudo em um lugar.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => {
+          setOpen(val);
+          if (!val) {
+            setEditingId(null);
+            setForm({ nome: "", telefone: "", whatsapp: "", cidade: "", tag: "quente", observacoes: "", valor_compra: "" });
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow"><Plus className="h-4 w-4 mr-2" />Novo passageiro</Button>
           </DialogTrigger>
           <DialogContent className="bg-card border-border">
-            <DialogHeader><DialogTitle className="font-display">Cadastrar passageiro</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="font-display">{editingId ? "Editar passageiro" : "Cadastrar passageiro"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>Nome completo</Label><Input value={form.nome} onChange={e => setForm(f => ({...f, nome: e.target.value}))} /></div>
               <div className="grid grid-cols-2 gap-3">
@@ -302,6 +354,15 @@ export default function Passageiros() {
                 </Select>
               </div>
               <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm(f => ({...f, observacoes: e.target.value}))} rows={2} /></div>
+              <div>
+                <Label>Valor total da compra (R$)</Label>
+                <Input type="number" step="0.01" value={form.valor_compra} onChange={e => setForm(f => ({...f, valor_compra: e.target.value}))} placeholder="Ex: 1500.00" />
+                {Number(form.valor_compra) > 0 && (
+                  <p className="text-xs text-success mt-1 font-medium">
+                    Comissão estimada (8%): R$ {getComissao(Number(form.valor_compra)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
               <Button onClick={handleSave} disabled={saving} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90">
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar
               </Button>
@@ -339,7 +400,7 @@ export default function Passageiros() {
             <TabsContent value="fechar"><ActionGrid items={applySearch(fecharVenda)} emptyMsg="Nenhum lead em negociação. Bom momento pra prospectar!" /></TabsContent>
             <TabsContent value="retorno"><ActionGrid items={applySearch(venderVolta)} emptyMsg="Ninguém com ida sem retorno nos últimos 30 dias." /></TabsContent>
             <TabsContent value="inativos"><ActionGrid items={applySearch(inativos)} emptyMsg="Sua base está aquecida — nenhum inativo." /></TabsContent>
-            <TabsContent value="todos"><PassageirosTable items={applySearch(items)} onDelete={handleDelete} /></TabsContent>
+            <TabsContent value="todos"><PassageirosTable items={applySearch(items)} onEdit={handleEdit} onDelete={handleDelete} /></TabsContent>
           </>
         )}
       </Tabs>
@@ -389,6 +450,27 @@ function ActionGrid({ items, emptyMsg }: { items: ActionItem[]; emptyMsg: string
               <span>{it.telefone || "Sem telefone"}</span>
               <span className="font-display font-semibold text-foreground">{it.meta}</span>
             </div>
+            {(it.observacoes || (it.ticket !== undefined && it.ticket > 0)) && (
+              <div className="flex flex-col gap-1 text-xs text-muted-foreground mb-3 pb-3 border-b border-border/50">
+                {it.ticket !== undefined && it.ticket > 0 && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span>Valor Total:</span>
+                      <span className="font-medium text-foreground">R$ {Number(it.ticket).toLocaleString("pt-BR")}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Comissão (8%):</span>
+                      <span className="font-medium text-success">R$ {getComissao(Number(it.ticket)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
+                )}
+                {it.observacoes && (
+                  <div className="italic line-clamp-2 mt-1" title={it.observacoes}>
+                    "{it.observacoes}"
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               {wa ? (
                 <a href={wa} target="_blank" rel="noreferrer" className="flex-1">
@@ -405,21 +487,7 @@ function ActionGrid({ items, emptyMsg }: { items: ActionItem[]; emptyMsg: string
                 </a>
               )}
             </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-3 pb-3 border-b border-border/50">
-  {/* <span>{it.telefone || "Sem telefone"}</span> */}
 
-  {/* <div className="text-right">
-    <p className="font-display font-semibold text-foreground">
-      {it.meta}
-    </p>
-
-    {it.valorVenda ? (
-      <p className="text-[10px] text-success">
-        Comissão: R$ {getComissao(it.valorVenda).toLocaleString("pt-BR")}
-      </p>
-    ) : null}
-  </div> */}
-</div>
           </Card>
         );
       })}
@@ -429,9 +497,11 @@ function ActionGrid({ items, emptyMsg }: { items: ActionItem[]; emptyMsg: string
 
 function PassageirosTable({
   items,
+  onEdit,
   onDelete,
 }: {
   items: Passageiro[];
+  onEdit: (p: Passageiro) => void;
   onDelete: (id: string) => void;
 }) {
  
@@ -453,8 +523,9 @@ function PassageirosTable({
               <th className="text-left font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Passageiro</th>
               <th className="text-left font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Cidade</th>
               <th className="text-left font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Viagens</th>
-              <th className="text-left font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Ticket</th>
+              <th className="text-left font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Valor / Comissão</th>
               <th className="text-left font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Status</th>
+              <th className="text-left font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Observações</th>
               <th className="text-right font-medium text-xs uppercase tracking-wider text-muted-foreground p-4">Ações</th>
             </tr>
           </thead>
@@ -472,8 +543,16 @@ function PassageirosTable({
                 </td>
                 <td className="p-4 text-muted-foreground">{p.cidade || "—"}</td>
                 <td className="p-4 font-semibold">{p.total_viagens}</td>
-                <td className="p-4">R$ {Number(p.ticket_medio).toLocaleString("pt-BR")}</td>
+                <td className="p-4">
+                  <div className="font-medium">R$ {Number(p.ticket_medio).toLocaleString("pt-BR")}</div>
+                  {p.ticket_medio > 0 && (
+                    <div className="text-xs text-success mt-0.5">
+                      Com: R$ {getComissao(Number(p.ticket_medio)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  )}
+                </td>
                 <td className="p-4"><Badge variant="outline" className={tagStyle[p.tag]}>{tagLabel[p.tag]}</Badge></td>
+                <td className="p-4 text-muted-foreground text-xs max-w-[200px] truncate" title={p.observacoes || ""}>{p.observacoes || "—"}</td>
                 <td className="p-4">
                   <div className="flex justify-end gap-1">
                     {(p.whatsapp || p.telefone) && (
@@ -481,6 +560,14 @@ function PassageirosTable({
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-success"><MessageCircle className="h-4 w-4" /></Button>
                       </a>
                       )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={() => onEdit(p)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

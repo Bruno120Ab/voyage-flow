@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Loader2, Calendar, Clock, MapPin, MessageCircle, ChevronLeft, ChevronRight, Users, DollarSign, AlertCircle, CheckCircle2, Bus, UserPlus } from "lucide-react";
+import { Plus, Loader2, Calendar, Clock, MapPin, MessageCircle, ChevronLeft, ChevronRight, Users, DollarSign, AlertCircle, CheckCircle2, Bus, UserPlus, Edit2, Trash2, Map, Wifi, Snowflake, Plug, Droplet, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -24,9 +24,9 @@ interface Embarque {
   valor_operacao: number; custo_operacao: number;
   status: EStatus; pagamento_status: PStatus; observacoes: string | null;
   veiculo_id: string | null;
-  veiculos?: { placa: string; modelo: string } | null;
+  veiculos?: { placa: string; modelo: string; observacoes: string | null } | null;
 }
-interface Veiculo { id: string; placa: string; modelo: string; }
+interface Veiculo { id: string; placa: string; modelo: string; observacoes: string | null; }
 interface Passageiro { id: string; nome: string; telefone: string | null; whatsapp: string | null; }
 interface EmbPax {
   id: string; embarque_id: string; passageiro_id: string;
@@ -48,6 +48,36 @@ const statusLabel: Record<EStatus, string> = {
   em_rota: "Em rota", finalizado: "Finalizado", cancelado: "Cancelado",
 };
 
+const COM_LIST = [
+  { id: "wifi", label: "Wi-Fi", icon: <Wifi className="h-3 w-3" /> },
+  { id: "ac", label: "Ar-Cond", icon: <Snowflake className="h-3 w-3" /> },
+  { id: "usb", label: "USB", icon: <Plug className="h-3 w-3" /> },
+  { id: "agua", label: "Água", icon: <Droplet className="h-3 w-3" /> },
+];
+
+interface Meta {
+  observacoes: string;
+  rota: "descida" | "subida" | "nenhuma";
+  classe?: string;
+  comodidades?: string[];
+}
+
+const parseMeta = (obs: string | null): Meta => {
+  if (!obs) return { observacoes: "", rota: "nenhuma", classe: "Convencional", comodidades: [] };
+  try {
+    const data = JSON.parse(obs);
+    if (data.isJsonMeta) {
+      return {
+        observacoes: data.observacoes || "",
+        rota: data.rota || "nenhuma",
+        classe: data.classe || "Convencional",
+        comodidades: data.comodidades || [],
+      };
+    }
+  } catch (e) {}
+  return { observacoes: obs, rota: "nenhuma", classe: "Convencional", comodidades: [] };
+};
+
 const schema = z.object({
   origem: z.string().trim().min(2).max(120),
   destino: z.string().trim().min(2).max(120),
@@ -58,7 +88,6 @@ const schema = z.object({
   custo_operacao: z.coerce.number().min(0),
   veiculo_id: z.string().optional(),
   status: z.enum(["rascunho", "confirmado", "pendente", "em_rota", "finalizado", "cancelado"]),
-  observacoes: z.string().max(500).optional(),
 });
 
 const onlyDigits = (s: string | null) => (s ?? "").replace(/\D/g, "");
@@ -76,7 +105,9 @@ export default function Embarques() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [tab, setTab] = useState<"dashboard" | "calendario" | "lista">("dashboard");
+  const [rotaFiltro, setRotaFiltro] = useState<"todos" | "descida" | "subida">("todos");
   const [selected, setSelected] = useState<Embarque | null>(null);
   const [selectedPax, setSelectedPax] = useState<EmbPax[]>([]);
   const [paxLoading, setPaxLoading] = useState(false);
@@ -85,14 +116,15 @@ export default function Embarques() {
     origem: "", destino: "", local_embarque: "",
     data_saida: "", data_retorno: "",
     valor_operacao: "0", custo_operacao: "0",
-    veiculo_id: "", status: "rascunho" as EStatus, observacoes: "",
+    veiculo_id: "none", status: "rascunho" as EStatus, observacoes: "",
+    rota: "nenhuma",
   });
 
   const load = async () => {
     setLoading(true);
     const [{ data: emb, error }, { data: vs }, { data: ps }] = await Promise.all([
-      supabase.from("embarques").select("*, veiculos(placa, modelo)").order("data_saida", { ascending: true }),
-      supabase.from("veiculos").select("id, placa, modelo").order("placa"),
+      supabase.from("embarques").select("*, veiculos(placa, modelo, observacoes)").order("data_saida", { ascending: true }),
+      supabase.from("veiculos").select("id, placa, modelo, observacoes").order("placa"),
       supabase.from("passageiros").select("id, nome, telefone, whatsapp").order("nome"),
     ]);
     if (error) toast.error(error.message);
@@ -114,11 +146,46 @@ export default function Embarques() {
     setPaxLoading(false);
   };
 
+  const handleEdit = (e: Embarque) => {
+    setEditingId(e.id);
+    const meta = parseMeta(e.observacoes);
+    setForm({
+      origem: e.origem,
+      destino: e.destino,
+      local_embarque: e.local_embarque || "",
+      data_saida: e.data_saida.slice(0, 16),
+      data_retorno: e.data_retorno ? e.data_retorno.slice(0, 16) : "",
+      valor_operacao: String(e.valor_operacao),
+      custo_operacao: String(e.custo_operacao),
+      veiculo_id: e.veiculo_id || "none",
+      status: e.status,
+      observacoes: meta.observacoes,
+      rota: meta.rota,
+    });
+    setOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!window.confirm("Tem certeza que deseja excluir este embarque?")) return;
+    const old = items;
+    setItems(items.filter(i => i.id !== id));
+    const { error } = await supabase.from("embarques").delete().eq("id", id);
+    if(error) { toast.error(error.message); setItems(old); return; }
+    toast.success("Embarque excluído");
+  };
+
   const handleSave = async () => {
     const parsed = schema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.errors[0].message); return; }
     setSaving(true);
-    const { error } = await supabase.from("embarques").insert({
+    
+    const obsJson = JSON.stringify({
+      isJsonMeta: true,
+      observacoes: form.observacoes,
+      rota: form.rota,
+    });
+
+    const payload = {
       origem: parsed.data.origem,
       destino: parsed.data.destino,
       local_embarque: parsed.data.local_embarque || null,
@@ -126,16 +193,30 @@ export default function Embarques() {
       data_retorno: parsed.data.data_retorno ? new Date(parsed.data.data_retorno).toISOString() : null,
       valor_operacao: parsed.data.valor_operacao,
       custo_operacao: parsed.data.custo_operacao,
-      veiculo_id: parsed.data.veiculo_id || null,
+      veiculo_id: form.veiculo_id && form.veiculo_id !== "none" ? form.veiculo_id : null,
       status: parsed.data.status,
-      observacoes: parsed.data.observacoes || null,
-    });
+      observacoes: obsJson,
+    };
+
+    if (editingId) {
+      const { error } = await supabase.from("embarques").update(payload).eq("id", editingId);
+      if (error) { toast.error(error.message); setSaving(false); return; }
+      toast.success("Embarque atualizado");
+    } else {
+      const { error } = await supabase.from("embarques").insert(payload);
+      if (error) { toast.error(error.message); setSaving(false); return; }
+      toast.success("Embarque criado");
+    }
+    
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Embarque criado");
     setOpen(false);
-    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "", status: "rascunho", observacoes: "" });
+    resetForm();
     load();
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "none", status: "rascunho", observacoes: "", rota: "nenhuma" });
   };
 
   const openDetails = (e: Embarque) => {
@@ -186,67 +267,99 @@ export default function Embarques() {
       .slice(0, 6);
   }, [items]);
 
+  const listItems = items.filter(e => {
+    if (rotaFiltro === "todos") return true;
+    const meta = parseMeta(e.observacoes);
+    return meta.rota === rotaFiltro;
+  });
+
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto">
+    <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-primary mb-1">Operação</p>
           <h1 className="font-display text-3xl font-bold">Embarques</h1>
           <p className="text-muted-foreground mt-1">Dashboard, calendário e checklist por passageiro — nada escapa.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => { setOpen(val); if(!val) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow"><Plus className="h-4 w-4 mr-2" />Novo embarque</Button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-border max-w-xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle className="font-display">Novo embarque</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Origem</Label><Input value={form.origem} onChange={e => setForm(f => ({...f, origem: e.target.value}))} placeholder="São Paulo" /></div>
-                <div><Label>Destino</Label><Input value={form.destino} onChange={e => setForm(f => ({...f, destino: e.target.value}))} placeholder="Foz do Iguaçu" /></div>
+          <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle className="font-display text-xl">{editingId ? "Editar embarque" : "Novo embarque"}</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Origem</Label><Input value={form.origem} onChange={e => setForm(f => ({...f, origem: e.target.value}))} placeholder="São Paulo" /></div>
+                  <div><Label>Destino</Label><Input value={form.destino} onChange={e => setForm(f => ({...f, destino: e.target.value}))} placeholder="Foz do Iguaçu" /></div>
+                </div>
+                <div><Label>Local de embarque</Label><Input value={form.local_embarque} onChange={e => setForm(f => ({...f, local_embarque: e.target.value}))} placeholder="Terminal Tietê - Plataforma 12" /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Saída</Label><Input type="datetime-local" value={form.data_saida} onChange={e => setForm(f => ({...f, data_saida: e.target.value}))} /></div>
+                  <div><Label>Retorno</Label><Input type="datetime-local" value={form.data_retorno} onChange={e => setForm(f => ({...f, data_retorno: e.target.value}))} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.valor_operacao} onChange={e => setForm(f => ({...f, valor_operacao: e.target.value}))} /></div>
+                  <div><Label>Custo (R$)</Label><Input type="number" step="0.01" value={form.custo_operacao} onChange={e => setForm(f => ({...f, custo_operacao: e.target.value}))} /></div>
+                </div>
               </div>
-              <div><Label>Local de embarque</Label><Input value={form.local_embarque} onChange={e => setForm(f => ({...f, local_embarque: e.target.value}))} placeholder="Terminal Tietê - Plataforma 12" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Saída</Label><Input type="datetime-local" value={form.data_saida} onChange={e => setForm(f => ({...f, data_saida: e.target.value}))} /></div>
-                <div><Label>Retorno</Label><Input type="datetime-local" value={form.data_retorno} onChange={e => setForm(f => ({...f, data_retorno: e.target.value}))} /></div>
+              <div className="space-y-3">
+                <div>
+                  <Label>Veículo escalado</Label>
+                  <Select value={form.veiculo_id} onValueChange={(v) => setForm(f => ({...f, veiculo_id: v}))}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar veículo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum veículo definido ainda</SelectItem>
+                      {veiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Sentido Padrão (Rota)</Label>
+                  <Select value={form.rota} onValueChange={(v: any) => setForm(f => ({...f, rota: v}))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nenhuma">Não definido</SelectItem>
+                      <SelectItem value="descida">Descida (Litoral - Ilhéus/Porto Seguro)</SelectItem>
+                      <SelectItem value="subida">Subida (Sudoeste - Conquista/Itapetinga)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select value={form.status} onValueChange={(v: EStatus) => setForm(f => ({...f, status: v}))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(statusLabel) as EStatus[]).map(s => <SelectItem key={s} value={s}>{statusLabel[s]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm(f => ({...f, observacoes: e.target.value}))} rows={2} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.valor_operacao} onChange={e => setForm(f => ({...f, valor_operacao: e.target.value}))} /></div>
-                <div><Label>Custo (R$)</Label><Input type="number" step="0.01" value={form.custo_operacao} onChange={e => setForm(f => ({...f, custo_operacao: e.target.value}))} /></div>
-              </div>
-              <div>
-                <Label>Veículo</Label>
-                <Select value={form.veiculo_id} onValueChange={(v) => setForm(f => ({...f, veiculo_id: v}))}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar veículo" /></SelectTrigger>
-                  <SelectContent>
-                    {veiculos.map(v => <SelectItem key={v.id} value={v.id}>{v.placa} — {v.modelo}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={(v: EStatus) => setForm(f => ({...f, status: v}))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(statusLabel) as EStatus[]).map(s => <SelectItem key={s} value={s}>{statusLabel[s]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm(f => ({...f, observacoes: e.target.value}))} rows={2} /></div>
-              <Button onClick={handleSave} disabled={saving} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90">
-                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar embarque
-              </Button>
             </div>
+            <Button onClick={handleSave} disabled={saving} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 mt-2">
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar embarque
+            </Button>
           </DialogContent>
         </Dialog>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="space-y-4">
-        <TabsList className="bg-card-elevated/50">
-          <TabsTrigger value="dashboard"><Bus className="h-3.5 w-3.5 mr-1.5" />Dashboard</TabsTrigger>
-          <TabsTrigger value="calendario"><Calendar className="h-3.5 w-3.5 mr-1.5" />Calendário</TabsTrigger>
-          <TabsTrigger value="lista"><Clock className="h-3.5 w-3.5 mr-1.5" />Lista</TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <TabsList className="bg-card-elevated/50">
+            <TabsTrigger value="dashboard"><Bus className="h-3.5 w-3.5 mr-1.5" />Dashboard</TabsTrigger>
+            <TabsTrigger value="calendario"><Calendar className="h-3.5 w-3.5 mr-1.5" />Calendário</TabsTrigger>
+            <TabsTrigger value="lista"><Clock className="h-3.5 w-3.5 mr-1.5" />Lista de Viagens</TabsTrigger>
+          </TabsList>
+
+          {tab === "lista" && (
+            <div className="flex bg-card-elevated/50 p-1 rounded-lg">
+              <Button size="sm" variant={rotaFiltro === "todos" ? "secondary" : "ghost"} className="text-xs h-8" onClick={() => setRotaFiltro("todos")}>Todos</Button>
+              <Button size="sm" variant={rotaFiltro === "descida" ? "secondary" : "ghost"} className="text-xs h-8 gap-1.5 text-primary" onClick={() => setRotaFiltro("descida")}><ArrowDownRight className="h-3 w-3" /> Descida</Button>
+              <Button size="sm" variant={rotaFiltro === "subida" ? "secondary" : "ghost"} className="text-xs h-8 gap-1.5 text-warning" onClick={() => setRotaFiltro("subida")}><ArrowUpRight className="h-3 w-3" /> Subida</Button>
+            </div>
+          )}
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -267,7 +380,7 @@ export default function Embarques() {
                     <AlertCircle className="h-4 w-4 text-destructive" />
                     <h3 className="font-display font-semibold">Saindo hoje — não esqueça!</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {stats.hoje.map(e => <EmbCard key={e.id} e={e} onClick={() => openDetails(e)} />)}
                   </div>
                 </Card>
@@ -290,14 +403,14 @@ export default function Embarques() {
             </TabsContent>
 
             <TabsContent value="lista">
-              {items.length === 0 ? (
+              {listItems.length === 0 ? (
                 <Card className="glass-card p-12 text-center">
                   <Calendar className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="font-medium">Nenhum embarque agendado</p>
+                  <p className="font-medium">Nenhum embarque encontrado nesta categoria</p>
                 </Card>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {items.map(e => <EmbCard key={e.id} e={e} onClick={() => openDetails(e)} detailed />)}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  {listItems.map(e => <EmbCard key={e.id} e={e} onClick={() => openDetails(e)} onEdit={handleEdit} onDelete={handleDelete} detailed />)}
                 </div>
               )}
             </TabsContent>
@@ -305,7 +418,6 @@ export default function Embarques() {
         )}
       </Tabs>
 
-      {/* Painel lateral de detalhes + checklist */}
       <Sheet open={!!selected} onOpenChange={(v) => !v && setSelected(null)}>
         <SheetContent className="bg-card border-border w-full sm:max-w-xl overflow-y-auto">
           {selected && (
@@ -391,26 +503,67 @@ function Stat({ icon, label, value, accent }: { icon: React.ReactNode; label: st
   );
 }
 
-function EmbCard({ e, onClick, detailed = false }: { e: Embarque; onClick: () => void; detailed?: boolean }) {
+function EmbCard({ e, onClick, onEdit, onDelete, detailed = false }: { e: Embarque; onClick: () => void; onEdit?: (e: Embarque) => void; onDelete?: (id: string) => void; detailed?: boolean }) {
   const lucro = Number(e.valor_operacao) - Number(e.custo_operacao);
   const dt = new Date(e.data_saida);
+  const meta = parseMeta(e.observacoes);
+  const vMeta = parseMeta(e.veiculos?.observacoes || null);
+
   return (
-    <Card onClick={onClick} className="glass-card p-5 hover:border-primary/40 transition-all cursor-pointer">
-      <div className="flex items-start gap-4">
-        <div className="flex flex-col items-center justify-center h-16 w-16 rounded-xl bg-gradient-gold text-primary-foreground shrink-0">
-          <span className="text-[10px] uppercase font-semibold opacity-80">{dt.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</span>
-          <span className="font-display font-bold text-xl leading-none">{dt.getDate()}</span>
+    <Card className="glass-card flex flex-col sm:flex-row overflow-hidden hover:border-primary/40 transition-all group">
+      <div className="bg-primary/5 p-6 flex flex-col items-center justify-center sm:w-40 border-b sm:border-b-0 sm:border-r border-border/50 shrink-0 cursor-pointer" onClick={onClick}>
+        <span className="text-[10px] uppercase font-semibold text-muted-foreground mb-1">{dt.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</span>
+        <span className="font-display font-bold text-3xl leading-none text-primary mb-1">{dt.getDate()}</span>
+        <span className="text-xs font-medium text-muted-foreground">{dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+      <div className="p-5 flex-1 flex flex-col">
+        <div className="flex justify-between items-start mb-3">
+          <div className="cursor-pointer flex-1" onClick={onClick}>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-display font-bold text-xl">{e.origem} → {e.destino}</h3>
+              <Badge variant="outline" className={`text-[10px] ${statusStyle[e.status]}`}>{statusLabel[e.status]}</Badge>
+            </div>
+            {e.local_embarque && <p className="text-muted-foreground text-sm flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {e.local_embarque}</p>}
+          </div>
+          <div className="flex gap-1 -mt-1 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onEdit && <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={(ev) => { ev.stopPropagation(); onEdit(e); }}><Edit2 className="h-4 w-4" /></Button>}
+            {onDelete && <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(ev) => { ev.stopPropagation(); onDelete(e.id); }}><Trash2 className="h-4 w-4" /></Button>}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-display font-semibold truncate">{e.origem} → {e.destino}</h3>
-            <Badge variant="outline" className={`${statusStyle[e.status]} shrink-0`}>{statusLabel[e.status]}</Badge>
+
+        <div className="mt-auto space-y-3 cursor-pointer" onClick={onClick}>
+          <div className="flex items-center gap-3 text-sm flex-wrap">
+            {e.veiculos ? (
+              <div className="flex items-center gap-1.5 text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
+                <Bus className="h-3.5 w-3.5" /> <span className="font-medium text-foreground text-xs">{e.veiculos.placa} • {e.veiculos.modelo}</span>
+                {vMeta.classe && <span className="ml-1 text-[10px] uppercase border border-border/50 px-1 rounded bg-background">{vMeta.classe}</span>}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-muted-foreground bg-warning/10 text-warning px-2 py-1 rounded-md text-xs">
+                <AlertCircle className="h-3.5 w-3.5" /> <span className="font-medium">Sem veículo</span>
+              </div>
+            )}
+            
+            {meta.rota !== "nenhuma" && (
+              <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md ${meta.rota === "descida" ? "bg-primary/10 text-primary" : "bg-warning/10 text-warning"}`}>
+                <Map className="h-3.5 w-3.5" /> 
+                <span className="font-medium">
+                  {meta.rota === "descida" ? "Descida (Litoral)" : "Subida (Sudoeste)"}
+                </span>
+              </div>
+            )}
           </div>
-          <div className="space-y-1 text-xs text-muted-foreground mt-2">
-            <div className="flex items-center gap-1.5"><Clock className="h-3 w-3" />{dt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</div>
-            {e.local_embarque && <div className="flex items-center gap-1.5"><MapPin className="h-3 w-3" />{e.local_embarque}</div>}
-            {e.veiculos && <div className="text-foreground">🚌 {e.veiculos.placa} • {e.veiculos.modelo}</div>}
-          </div>
+
+          {vMeta.comodidades && vMeta.comodidades.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-border/50">
+              {vMeta.comodidades.map((c: string) => {
+                  const info = COM_LIST.find(x => x.id === c);
+                  if(!info) return null;
+                  return <div key={c} className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-accent/5 border border-border/50 px-2 py-1 rounded-md">{info.icon} {info.label}</div>
+              })}
+            </div>
+          )}
+          
           {detailed && (
             <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border/50 text-center">
               <div><p className="text-[10px] uppercase text-muted-foreground">Valor</p><p className="text-sm font-semibold">R$ {Number(e.valor_operacao).toLocaleString("pt-BR")}</p></div>

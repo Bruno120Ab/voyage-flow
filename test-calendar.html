@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html><body>
+<script>
+  try {
+    const month = new Date();
+    month.setDate(1);
+    const year = month.getFullYear();
+    const m = month.getMonth();
+    const first = new Date(year, m, 1);
+    const startDay = first.getDay();
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
+    console.log({ year, m, startDay, daysInMonth });
+  } catch (e) { console.error(e); }
+</script>
+</body></html>
