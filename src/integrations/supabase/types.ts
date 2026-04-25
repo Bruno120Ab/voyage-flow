@@ -136,6 +136,75 @@ export type Database = {
           },
         ]
       }
+      embarques_dia: {
+        Row: {
+          carro: string
+          cidade_destino: string | null
+          cidade_origem: string | null
+          created_at: string
+          created_by: string | null
+          data_operacao: string
+          encomenda: string | null
+          hora_real: string | null
+          hora_saida_prevista: string | null
+          hora_saida_real: string | null
+          id: string
+          motorista: string | null
+          observacao: string | null
+          passou: boolean
+          previsao_chegada: string | null
+          prioridade: Database["public"]["Enums"]["embarque_dia_prioridade"]
+          rota: string
+          servico: string
+          status: Database["public"]["Enums"]["embarque_dia_status"]
+          updated_at: string
+        }
+        Insert: {
+          carro?: string
+          cidade_destino?: string | null
+          cidade_origem?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_operacao?: string
+          encomenda?: string | null
+          hora_real?: string | null
+          hora_saida_prevista?: string | null
+          hora_saida_real?: string | null
+          id?: string
+          motorista?: string | null
+          observacao?: string | null
+          passou?: boolean
+          previsao_chegada?: string | null
+          prioridade?: Database["public"]["Enums"]["embarque_dia_prioridade"]
+          rota: string
+          servico: string
+          status?: Database["public"]["Enums"]["embarque_dia_status"]
+          updated_at?: string
+        }
+        Update: {
+          carro?: string
+          cidade_destino?: string | null
+          cidade_origem?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_operacao?: string
+          encomenda?: string | null
+          hora_real?: string | null
+          hora_saida_prevista?: string | null
+          hora_saida_real?: string | null
+          id?: string
+          motorista?: string | null
+          observacao?: string | null
+          passou?: boolean
+          previsao_chegada?: string | null
+          prioridade?: Database["public"]["Enums"]["embarque_dia_prioridade"]
+          rota?: string
+          servico?: string
+          status?: Database["public"]["Enums"]["embarque_dia_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           cidade: string | null
@@ -375,6 +444,8 @@ export type Database = {
         | "financeiro"
         | "operacional"
         | "motorista"
+      embarque_dia_prioridade: "Normal" | "Alta" | "Baixa"
+      embarque_dia_status: "pendente" | "concluido"
       embarque_status:
         | "rascunho"
         | "confirmado"
@@ -528,6 +599,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "vendedor", "financeiro", "operacional", "motorista"],
+      embarque_dia_prioridade: ["Normal", "Alta", "Baixa"],
+      embarque_dia_status: ["pendente", "concluido"],
       embarque_status: [
         "rascunho",
         "confirmado",
