@@ -305,7 +305,7 @@ export default function Embarques() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <Label>Veículo escalado</Label>
+                  <Label>Frota / Veículo escalado</Label>
                   <Select value={form.veiculo_id} onValueChange={(v) => setForm(f => ({...f, veiculo_id: v}))}>
                     <SelectTrigger><SelectValue placeholder="Selecionar veículo" /></SelectTrigger>
                     <SelectContent>

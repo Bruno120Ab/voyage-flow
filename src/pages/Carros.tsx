@@ -35,7 +35,7 @@ export default function PaginaEmbarques() {
     observacao: "",
   });
 
-  const [novoEmbarque, setNovoEmbarque] = useState({
+  const [formServico, setFormServico] = useState({
     servico: "",
     cidadeOrigem: "",
     cidadeDestino: "",
@@ -43,6 +43,7 @@ export default function PaginaEmbarques() {
     horaSaidaReal: "",
     prioridade: "Normal" as "Normal" | "Alta" | "Baixa",
   });
+  const [idEditando, setIdEditando] = useState<string | null>(null);
 
   // ---- LOAD ----
   const carregar = async () => {
@@ -86,8 +87,8 @@ export default function PaginaEmbarques() {
     }
   };
 
-  const calcularPrevisao = (cidadeOrigem: string, horaSaidaReal: string) => {
-    if (!cidadeOrigem || !horaSaidaReal) return "";
+  const calcularPrevisao = (cidadeOrigem: string, horaStr: string) => {
+    if (!cidadeOrigem || !horaStr) return "";
     const tempos: Record<string, number> = {
       "Vitória da Conquista": 60,
       VCA: 60,
@@ -95,12 +96,31 @@ export default function PaginaEmbarques() {
       Itambé: 0,
     };
     const minutosAdicionar = tempos[cidadeOrigem] ?? 60;
-    const [hora, minuto] = horaSaidaReal.split(":").map(Number);
+    const [hora, minuto] = horaStr.split(":").map(Number);
     if (isNaN(hora) || isNaN(minuto)) return "";
     const data = new Date();
     data.setHours(hora);
     data.setMinutes(minuto + minutosAdicionar);
     return `${String(data.getHours()).padStart(2, "0")}:${String(data.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const abrirModalNovo = () => {
+    setIdEditando(null);
+    setFormServico({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", prioridade: "Normal" });
+    setNovoModalOpen(true);
+  };
+
+  const abrirModalEditar = (item: EmbarqueDia) => {
+    setIdEditando(item.id);
+    setFormServico({
+      servico: item.servico || "",
+      cidadeOrigem: item.cidade_origem || "",
+      cidadeDestino: item.cidade_destino || "",
+      horaSaidaPrevista: item.hora_saida_prevista || "",
+      horaSaidaReal: item.hora_saida_real || "",
+      prioridade: (item.prioridade as any) || "Normal",
+    });
+    setNovoModalOpen(true);
   };
 
   const abrirModal = (item: EmbarqueDia) => {
@@ -166,34 +186,53 @@ export default function PaginaEmbarques() {
     }
   };
 
-  const criarNovoEmbarque = async () => {
-    if (!novoEmbarque.servico || !novoEmbarque.cidadeOrigem || !novoEmbarque.cidadeDestino) {
+  const salvarServico = async () => {
+    if (!formServico.servico || !formServico.cidadeOrigem || !formServico.cidadeDestino) {
       toast({ title: "Preencha serviço, origem e destino", variant: "destructive" });
       return;
     }
-    const previsao = calcularPrevisao(novoEmbarque.cidadeOrigem, novoEmbarque.horaSaidaReal);
+    const previsao = calcularPrevisao(formServico.cidadeOrigem, formServico.horaSaidaReal || formServico.horaSaidaPrevista);
     const { data: { user } } = await supabase.auth.getUser();
-    const hojeOperacao = new Date().toISOString().slice(0, 10);
-    const { error } = await supabase.from("embarques_dia").insert({
-      servico: novoEmbarque.servico,
-      rota: `${novoEmbarque.cidadeOrigem} → ${novoEmbarque.cidadeDestino}`,
-      cidade_origem: novoEmbarque.cidadeOrigem,
-      cidade_destino: novoEmbarque.cidadeDestino,
-      hora_saida_prevista: novoEmbarque.horaSaidaPrevista,
-      hora_saida_real: novoEmbarque.horaSaidaReal,
-      previsao_chegada: previsao,
-      prioridade: novoEmbarque.prioridade,
-      data_operacao: hojeOperacao,
-      created_by: user?.id ?? null,
-    });
-    if (error) {
-      toast({ title: "Erro ao criar", description: error.message, variant: "destructive" });
-      return;
+    
+    if (idEditando) {
+      const { error } = await supabase.from("embarques_dia").update({
+        servico: formServico.servico,
+        rota: `${formServico.cidadeOrigem} → ${formServico.cidadeDestino}`,
+        cidade_origem: formServico.cidadeOrigem,
+        cidade_destino: formServico.cidadeDestino,
+        hora_saida_prevista: formServico.horaSaidaPrevista,
+        hora_saida_real: formServico.horaSaidaReal,
+        previsao_chegada: previsao,
+      }).eq("id", idEditando);
+      
+      if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+      else {
+        toast({ title: "Serviço atualizado" });
+        setNovoModalOpen(false);
+        carregar();
+      }
+    } else {
+      const hojeOperacao = new Date().toISOString().slice(0, 10);
+      const { error } = await supabase.from("embarques_dia").insert({
+        servico: formServico.servico,
+        rota: `${formServico.cidadeOrigem} → ${formServico.cidadeDestino}`,
+        cidade_origem: formServico.cidadeOrigem,
+        cidade_destino: formServico.cidadeDestino,
+        hora_saida_prevista: formServico.horaSaidaPrevista,
+        hora_saida_real: formServico.horaSaidaReal,
+        previsao_chegada: previsao,
+        prioridade: formServico.prioridade,
+        data_operacao: hojeOperacao,
+        created_by: user?.id ?? null,
+      });
+      if (error) {
+        toast({ title: "Erro ao criar", description: error.message, variant: "destructive" });
+        return;
+      }
+      setNovoModalOpen(false);
+      toast({ title: "Embarque criado" });
+      carregar();
     }
-    setNovoEmbarque({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", prioridade: "Normal" });
-    setNovoModalOpen(false);
-    toast({ title: "Embarque criado" });
-    carregar();
   };
 
   const copymsg = (item: EmbarqueDia) => {
@@ -261,7 +300,7 @@ export default function PaginaEmbarques() {
           <Button variant="outline" className="border-border hover:border-primary/40 hover:bg-primary/5 transition-all" onClick={resetarEmbarquesDoDia}>
             <RotateCcw className="w-4 h-4 mr-2" /> Reiniciar Dia
           </Button>
-          <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={() => setNovoModalOpen(true)}>
+          <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={abrirModalNovo}>
             <Plus className="w-4 h-4 mr-2" /> Novo Serviço
           </Button>
         </div>
@@ -393,7 +432,11 @@ export default function PaginaEmbarques() {
                             <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                           </>
                         ) : (
-                          <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95">Fazer Check-in</Button>
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => abrirModalEditar(item)} className="h-9">Editar Serviço</Button>
+                            <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95">Fazer Check-in</Button>
+                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-9 w-9 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -502,26 +545,26 @@ export default function PaginaEmbarques() {
         </DialogContent>
       </Dialog>
 
-      {/* modal novo embarque */}
+      {/* modal novo / editar serviço */}
       <Dialog open={novoModalOpen} onOpenChange={setNovoModalOpen}>
         <DialogContent className="rounded-2xl max-w-md bg-card/95 backdrop-blur-xl border-border/60 shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">Novo Serviço de Frota</DialogTitle>
+            <DialogTitle className="font-display text-xl">{idEditando ? "Editar Serviço" : "Novo Serviço de Frota"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label>Número do Serviço</Label>
-              <Input className="bg-background/50" placeholder="Ex: 8599" value={novoEmbarque.servico} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, servico: e.target.value })} />
+              <Input className="bg-background/50" placeholder="Ex: 8599" value={formServico.servico} onChange={(e) => setFormServico({ ...formServico, servico: e.target.value })} />
             </div>
             
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Cidade Origem</Label>
-                <Input className="bg-background/50" placeholder="Saindo de..." value={novoEmbarque.cidadeOrigem} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, cidadeOrigem: e.target.value })} />
+                <Input className="bg-background/50" placeholder="Saindo de..." value={formServico.cidadeOrigem} onChange={(e) => setFormServico({ ...formServico, cidadeOrigem: e.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Cidade Destino</Label>
-                <Input className="bg-background/50" placeholder="Indo para..." value={novoEmbarque.cidadeDestino} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, cidadeDestino: e.target.value })} />
+                <Input className="bg-background/50" placeholder="Indo para..." value={formServico.cidadeDestino} onChange={(e) => setFormServico({ ...formServico, cidadeDestino: e.target.value })} />
               </div>
             </div>
             
@@ -530,20 +573,20 @@ export default function PaginaEmbarques() {
                 <Label>Saída Prevista</Label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={novoEmbarque.horaSaidaPrevista} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, horaSaidaPrevista: e.target.value })} />
+                  <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={formServico.horaSaidaPrevista} onChange={(e) => setFormServico({ ...formServico, horaSaidaPrevista: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Hora Real (Opcional)</Label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={novoEmbarque.horaSaidaReal} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, horaSaidaReal: e.target.value })} />
+                  <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={formServico.horaSaidaReal} onChange={(e) => setFormServico({ ...formServico, horaSaidaReal: e.target.value })} />
                 </div>
               </div>
             </div>
             
             <div className="pt-2">
-              <Button className="w-full rounded-xl bg-primary" onClick={criarNovoEmbarque}>Criar Serviço</Button>
+              <Button className="w-full rounded-xl bg-primary" onClick={salvarServico}>{idEditando ? "Salvar Alterações" : "Criar Serviço"}</Button>
             </div>
           </div>
         </DialogContent>

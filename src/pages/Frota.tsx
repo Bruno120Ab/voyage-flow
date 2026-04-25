@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Bus, MapPin, User, Plus, Filter, Loader2, Edit2, Trash2, Map, Wifi, Snowflake, Plug, Droplet, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Bus, MapPin, User, Plus, Filter, Loader2, Edit2, Trash2, Map, Wifi, Snowflake, Plug, Droplet, ArrowDownRight, ArrowUpRight, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -17,6 +17,7 @@ type VStatus = "operando" | "agendado" | "finalizado" | "manutencao";
 interface Veiculo {
   id: string; placa: string; modelo: string; capacidade: number;
   motorista_nome: string | null; status: VStatus; observacoes: string | null;
+  embarques?: { id: string; origem: string; destino: string; data_saida: string; status: string }[];
 }
 
 const statusStyle: Record<VStatus, string> = {
@@ -82,7 +83,7 @@ export default function Frota() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("veiculos").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("veiculos").select("*, embarques(id, origem, destino, data_saida, status)").order("created_at", { ascending: false });
     if (error) toast.error(error.message);
     setItems((data as Veiculo[]) ?? []);
     setLoading(false);
@@ -318,6 +319,25 @@ export default function Frota() {
                           </div>
                         )}
                       </div>
+
+                      {v.embarques && v.embarques.filter(e => e.status !== 'cancelado' && e.status !== 'finalizado').length > 0 && (
+                        <div className="pt-3 border-t border-border/50">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-2 flex items-center gap-1.5"><Calendar className="h-3 w-3" /> Viagens Agendadas</p>
+                          <div className="space-y-1.5">
+                            {v.embarques.filter(e => e.status !== 'cancelado' && e.status !== 'finalizado')
+                              .sort((a,b) => new Date(a.data_saida).getTime() - new Date(b.data_saida).getTime())
+                              .map(emb => {
+                                const dt = new Date(emb.data_saida);
+                                return (
+                                  <div key={emb.id} className="flex justify-between items-center bg-primary/5 border border-primary/10 rounded-md p-1.5 px-2.5">
+                                    <span className="text-xs font-medium">{emb.origem} → {emb.destino}</span>
+                                    <span className="text-[10px] text-muted-foreground font-semibold">{dt.toLocaleDateString("pt-BR", {day:'2-digit', month:'short'})}</span>
+                                  </div>
+                                )
+                              })}
+                          </div>
+                        </div>
+                      )}
                       
                       {meta.comodidades.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-3 border-t border-border/50">
