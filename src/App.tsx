@@ -21,6 +21,7 @@ import Placeholder from "./pages/Placeholder";
 import PaginaEmbarques from "./pages/Carros.tsx";
 import PaginaContatos from "./pages/Contatos.tsx";
 import PaginaEncomendas from "./pages/Entregas.tsx";
+import Financeiro from "./pages/Financeiro.tsx";
 
 const queryClient = new QueryClient();
 
@@ -49,7 +50,7 @@ const App = () => (
             <Route path="/prospeccao" element={protectedLayout(<Prospeccao />)} />
             <Route path="/equipe" element={protectedLayout(<Equipe />)} />
             <Route path="/Contatos" element={protectedLayout(<PaginaContatos />)} />
-            <Route path="/financeiro" element={protectedLayout(<Placeholder title="Financeiro" subtitle="Contas a receber, comissões, fluxo de caixa e lucro por viagem." />)} />
+            <Route path="/financeiro" element={protectedLayout(<Financeiro />)} />
             <Route path="/relatorios" element={protectedLayout(<Placeholder title="Relatórios inteligentes" subtitle="Melhores rotas, ranking de motoristas, margem por viagem." />)} />
             <Route path="/whatsapp" element={protectedLayout(<Placeholder title="WhatsApp integrado" subtitle="Lembretes, cobrança automática, campanhas de retorno." />)} />
             <Route path="/configuracoes" element={protectedLayout(<Placeholder title="Configurações" subtitle="Preferências da agência, integrações e personalização." />)} />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { Database } from "@/integrations/supabase/types";
@@ -76,8 +78,12 @@ export default function PaginaEmbarques() {
       .from("embarques_dia")
       .update({ passou: false, status: "pendente", hora_real: "", carro: "--", motorista: "", encomenda: "", observacao: "" })
       .in("id", ids);
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else toast({ title: "Dia reiniciado" });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Dia reiniciado" });
+      carregar();
+    }
   };
 
   const calcularPrevisao = (cidadeOrigem: string, horaSaidaReal: string) => {
@@ -109,15 +115,18 @@ export default function PaginaEmbarques() {
     setModalOpen(true);
   };
 
-  const horaParaMinutos = (hora: string | null) => {
-    if (!hora) return null;
-    const [h, m] = hora.slice(0, 5).split(":").map(Number);
+  const parseTimeMin = (hora: string | null) => {
+    if (!hora || typeof hora !== "string") return null;
+    const horaFormatada = hora.slice(0, 5);
+    if (!horaFormatada.includes(":")) return null;
+    const [h, m] = horaFormatada.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
     return h * 60 + m;
   };
   const agoraMin = agora.getHours() * 60 + agora.getMinutes();
 
   const getStatusHorario = (horaSaidaPrevista: string | null, passou: boolean) => {
-    const itemMin = horaParaMinutos(horaSaidaPrevista);
+    const itemMin = parseTimeMin(horaSaidaPrevista);
     if (itemMin === null) return "normal";
     const diff = itemMin - agoraMin;
     if (diff < 0 && !passou) return "atrasado";
@@ -143,13 +152,18 @@ export default function PaginaEmbarques() {
     else {
       toast({ title: "Embarque confirmado" });
       setModalOpen(false);
+      carregar();
     }
   };
 
   const excluirServico = async (id: string) => {
     if (!confirm("Excluir este embarque?")) return;
     const { error } = await supabase.from("embarques_dia").delete().eq("id", id);
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      carregar();
+    }
   };
 
   const criarNovoEmbarque = async () => {
@@ -159,6 +173,7 @@ export default function PaginaEmbarques() {
     }
     const previsao = calcularPrevisao(novoEmbarque.cidadeOrigem, novoEmbarque.horaSaidaReal);
     const { data: { user } } = await supabase.auth.getUser();
+    const hojeOperacao = new Date().toISOString().slice(0, 10);
     const { error } = await supabase.from("embarques_dia").insert({
       servico: novoEmbarque.servico,
       rota: `${novoEmbarque.cidadeOrigem} → ${novoEmbarque.cidadeDestino}`,
@@ -168,6 +183,7 @@ export default function PaginaEmbarques() {
       hora_saida_real: novoEmbarque.horaSaidaReal,
       previsao_chegada: previsao,
       prioridade: novoEmbarque.prioridade,
+      data_operacao: hojeOperacao,
       created_by: user?.id ?? null,
     });
     if (error) {
@@ -177,27 +193,13 @@ export default function PaginaEmbarques() {
     setNovoEmbarque({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", prioridade: "Normal" });
     setNovoModalOpen(false);
     toast({ title: "Embarque criado" });
+    carregar();
   };
 
-  const copymsg = () => {
-    if (!embarqueSelecionado) return;
-    const mensagem = `✅ EMBARQUE CONCLUÍDO
-
-🚌 Serviço: #${embarqueSelecionado.servico}
-📍 Rota: ${embarqueSelecionado.rota}
-
-🕐 Horário de sistema: ${embarqueSelecionado.hora_saida_prevista || "--"}
-📢 Aviso oficial da rodoviária: ${embarqueSelecionado.previsao_chegada || "--"}
-
-✅ Hora real de chegada: ${form.horaReal || "--"}
-🚐 Número do carro: ${form.carro || "--"}
-👨‍✈️ Motorista: ${form.motorista || "--"}
-📦 Encomenda: ${form.encomenda || "--"}
-📝 Observação: ${form.observacao || "--"}
-
-Tudo ocorreu corretamente e sem intercorrências.`;
+  const copymsg = (item: EmbarqueDia) => {
+    const mensagem = `✅ EMBARQUE CONCLUÍDO\n\n🚌 Serviço: #${item.servico}\n📍 Rota: ${item.rota}\n\n🕐 Horário de sistema: ${item.hora_saida_prevista || "--"}\n📢 Aviso oficial da rodoviária: ${item.previsao_chegada || "--"}\n\n✅ Hora real de chegada: ${item.hora_real || "--"}\n🚐 Número do carro: ${item.carro || "--"}\n👨‍✈️ Motorista: ${item.motorista || "--"}\n📦 Encomenda: ${item.encomenda || "--"}\n📝 Observação: ${item.observacao || "--"}\n\nTudo ocorreu corretamente e sem intercorrências.`;
     navigator.clipboard.writeText(mensagem);
-    toast({ title: "Mensagem copiada" });
+    toast({ title: "Relatório copiado para a área de transferência" });
   };
 
   const total = embarques.length;
@@ -205,15 +207,6 @@ Tudo ocorreu corretamente e sem intercorrências.`;
   const pendentes = total - concluidos;
 
   const [filtroStatus, setFiltroStatus] = useState("todos");
-
-  const converterHoraParaMinutos = (hora: string | null) => {
-    if (!hora || typeof hora !== "string") return 0;
-    const horaFormatada = hora.slice(0, 5);
-    if (!horaFormatada.includes(":")) return 0;
-    const [h, m] = horaFormatada.split(":").map(Number);
-    if (isNaN(h) || isNaN(m)) return 0;
-    return h * 60 + m;
-  };
 
   const embarquesFiltrados = useMemo(() => {
     const horaAtualMinutos = agora.getHours() * 60 + agora.getMinutes();
@@ -224,7 +217,7 @@ Tudo ocorreu corretamente e sem intercorrências.`;
       if (!matchBusca) return false;
 
       const horaItem = item.hora_saida_prevista || item.previsao_chegada || "";
-      const horaItemMinutos = converterHoraParaMinutos(horaItem);
+      const horaItemMinutos = parseTimeMin(horaItem) ?? 0;
 
       if (filtroStatus === "pendentes") return !item.passou;
       if (filtroStatus === "concluidos") return item.passou;
@@ -234,211 +227,324 @@ Tudo ocorreu corretamente e sem intercorrências.`;
     });
 
     return filtrados.sort((a, b) => {
-      const aMin = converterHoraParaMinutos(a.hora_saida_prevista || a.previsao_chegada || "00:00");
-      const bMin = converterHoraParaMinutos(b.hora_saida_prevista || b.previsao_chegada || "00:00");
+      const aMin = parseTimeMin(a.hora_saida_prevista || a.previsao_chegada) ?? 0;
+      const bMin = parseTimeMin(b.hora_saida_prevista || b.previsao_chegada) ?? 0;
       return aMin - bMin;
     });
   }, [embarques, busca, filtroStatus]);
 
+  const calcularTempoRestante = (hora: string | null, passou: boolean) => {
+    if (!hora || passou) return "Finalizado";
+    const itemMin = parseTimeMin(hora);
+    if (itemMin === null) return "--";
+    const atualMin = agora.getHours() * 60 + agora.getMinutes();
+    const diff = itemMin - atualMin;
+    if (diff < 0) return "Atrasado";
+    const horas = Math.floor(diff / 60);
+    const minutos = diff % 60;
+    if (horas > 0) return `Em ${horas}h ${minutos}min`;
+    return `Em ${minutos}min`;
+  };
+
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Central de Embarques</h1>
-            <p className="text-muted-foreground">
-              Controle operacional completo de linhas, motoristas e saídas
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" className="rounded-2xl" onClick={resetarEmbarquesDoDia}>
-              Reiniciar dia
-            </Button>
-            <Button className="rounded-2xl" onClick={() => setNovoModalOpen(true)}>
-              + Novo embarque
-            </Button>
-          </div>
+    <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-primary mb-1">Operação</p>
+          <h1 className="font-display text-3xl font-bold">Monitor de Frotas</h1>
+          <p className="text-muted-foreground mt-1">
+            Gestão inteligente das saídas diárias, status de carros e check-ins.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          <Card className="p-5 rounded-2xl">
-            <p className="text-sm text-muted-foreground">Total do dia</p>
-            <h2 className="text-3xl font-bold">{total}</h2>
-          </Card>
-          <Card className="p-5 rounded-2xl">
-            <p className="text-sm text-muted-foreground">Concluídos</p>
-            <h2 className="text-3xl font-bold">{concluidos}</h2>
-          </Card>
-          <Card className="p-5 rounded-2xl">
-            <p className="text-sm text-muted-foreground">Pendentes</p>
-            <h2 className="text-3xl font-bold">{pendentes}</h2>
-          </Card>
+        <div className="flex gap-3">
+          <Button variant="outline" className="border-border hover:border-primary/40 hover:bg-primary/5 transition-all" onClick={resetarEmbarquesDoDia}>
+            <RotateCcw className="w-4 h-4 mr-2" /> Reiniciar Dia
+          </Button>
+          <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={() => setNovoModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Novo Serviço
+          </Button>
         </div>
-
-        <Card className="p-5 rounded-2xl">
-          <div className="grid md:grid-cols-3 gap-3">
-            <Input
-              placeholder="Buscar por serviço ou rota..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-            <select
-              className="h-10 rounded-md border bg-background px-3"
-              value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value)}
-            >
-              <option value="todos">Todos</option>
-              <option value="pendentes">Somente pendentes</option>
-              <option value="concluidos">Somente concluídos</option>
-              <option value="faltamHoje">Carros que ainda faltam passar</option>
-            </select>
-          </div>
-        </Card>
-
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : (
-          <div className="space-y-3">
-            {embarquesFiltrados.length === 0 && (
-              <Card className="p-10 rounded-2xl text-center text-muted-foreground">
-                Nenhum embarque para exibir hoje.
-              </Card>
-            )}
-            {embarquesFiltrados.map((item) => {
-              const statusHorario = getStatusHorario(item.hora_saida_prevista, item.passou);
-
-              const calcularTempoRestante = (hora: string | null) => {
-                if (!hora || item.passou) return "Finalizado";
-                const itemMin = converterHoraParaMinutos(hora);
-                if (!itemMin) return "--";
-                const atualMin = agora.getHours() * 60 + agora.getMinutes();
-                const diff = itemMin - atualMin;
-                if (diff < 0) return "Atrasado";
-                const horas = Math.floor(diff / 60);
-                const minutos = diff % 60;
-                if (horas > 0) return `Faltam ${horas}h ${minutos}min`;
-                return `Faltam ${minutos}min`;
-              };
-
-              return (
-                <details
-                  key={item.id}
-                  className={`rounded-2xl border transition-all overflow-hidden ${
-                    statusHorario === "atrasado"
-                      ? "border-red-500 bg-red-500/5"
-                      : statusHorario === "iminente"
-                      ? "border-yellow-500 bg-yellow-500/5"
-                      : "border-border"
-                  }`}
-                >
-                  <summary className="list-none cursor-pointer p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="font-semibold text-base truncate">{item.rota}</h3>
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-1">
-                          <span>Serviço #{item.servico}</span>
-                          <span>•</span>
-                          <span>{item.hora_saida_prevista || "--"}</span>
-                        </div>
-                      </div>
-                      <div className="text-right space-y-1">
-                        <div className={`text-xs font-semibold px-2 py-1 rounded-full ${item.passou ? "bg-green-500/10 text-green-600" : "bg-yellow-500/10 text-yellow-600"}`}>
-                          {item.passou ? "Concluído" : "Pendente"}
-                        </div>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {calcularTempoRestante(item.hora_saida_prevista)}
-                        </p>
-                      </div>
-                    </div>
-                  </summary>
-
-                  <div className="border-t p-4 space-y-4 bg-muted/10">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border p-3">
-                        <p className="text-xs text-muted-foreground">Horário Sistema</p>
-                        <p className="font-bold text-lg">{item.hora_saida_prevista || "--"}</p>
-                      </div>
-                      <div className="rounded-xl border p-3">
-                        <p className="text-xs text-muted-foreground">Aviso Rodoviária</p>
-                        <p className="font-bold text-lg">{item.previsao_chegada || "--"}</p>
-                      </div>
-                    </div>
-
-                    {item.passou && (
-                      <div className="rounded-xl border p-3">
-                        <p className="font-semibold text-sm mb-2">Resumo do embarque</p>
-                        <div className="grid grid-cols-3 gap-3 text-sm">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Chegada</p>
-                            <p className="font-semibold">{item.hora_real || "--"}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Carro</p>
-                            <p className="font-semibold">{item.carro || "--"}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Motorista</p>
-                            <p className="font-semibold">{item.motorista || "--"}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => abrirModal(item)} className="rounded-lg">
-                        {item.passou ? "Editar" : "Confirmar"}
-                      </Button>
-                      {item.passou && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => { setEmbarqueSelecionado(item); setForm({ horaReal: item.hora_real || "", carro: item.carro || "", motorista: item.motorista || "", encomenda: item.encomenda || "", observacao: item.observacao || "" }); setTimeout(copymsg, 10); }} className="rounded-lg">
-                            Relatório
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => excluirServico(item.id)} className="rounded-lg">
-                            Excluir
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </details>
-              );
-            })}
-          </div>
-        )}
       </div>
 
-      {/* modal novo embarque */}
-      <Dialog open={novoModalOpen} onOpenChange={setNovoModalOpen}>
-        <DialogContent className="rounded-2xl max-w-lg">
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="glass-card p-5 border-t-4 border-t-primary">
+          <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Total do Dia</p>
+          <h2 className="font-display text-3xl font-bold">{total}</h2>
+        </Card>
+        <Card className="glass-card p-5 border-t-4 border-t-success">
+          <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Check-in Concluído</p>
+          <h2 className="font-display text-3xl font-bold text-success">{concluidos}</h2>
+        </Card>
+        <Card className="glass-card p-5 border-t-4 border-t-warning">
+          <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Aguardando Saída</p>
+          <h2 className="font-display text-3xl font-bold text-warning">{pendentes}</h2>
+        </Card>
+      </div>
+
+      <div className="bg-card-elevated/50 p-2 rounded-xl flex flex-col md:flex-row gap-2 items-center">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9 bg-background/50 border-transparent focus-visible:border-primary transition-colors w-full h-10 rounded-lg"
+            placeholder="Buscar por número do serviço ou destino..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
+          <Button size="sm" variant={filtroStatus === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("todos")}>Todos</Button>
+          <Button size="sm" variant={filtroStatus === "pendentes" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("pendentes")}>Pendentes</Button>
+          <Button size="sm" variant={filtroStatus === "concluidos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("concluidos")}>Concluídos</Button>
+          <Button size="sm" variant={filtroStatus === "faltamHoje" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("faltamHoje")}>Faltam Hoje</Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+      ) : embarquesFiltrados.length === 0 ? (
+        <Card className="glass-card p-16 text-center text-muted-foreground flex flex-col items-center justify-center">
+          <Bus className="h-12 w-12 text-muted-foreground/30 mb-4" />
+          <h3 className="text-lg font-display font-semibold text-foreground">Nenhuma viagem encontrada</h3>
+          <p className="text-sm">Altere os filtros ou adicione novos serviços para hoje.</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4">
+          {embarquesFiltrados.map((item) => {
+            const statusHorario = getStatusHorario(item.hora_saida_prevista, item.passou);
+            const isWarning = statusHorario === "iminente" || statusHorario === "atrasado";
+            
+            let statusColor = "bg-secondary text-secondary-foreground border-transparent";
+            let statusText = "Agendado";
+            let StatusIcon = Clock;
+
+            if (item.passou) {
+              statusColor = "bg-success/10 text-success border-success/30";
+              statusText = "Concluído";
+              StatusIcon = CheckCircle2;
+            } else if (statusHorario === "atrasado") {
+              statusColor = "bg-destructive/10 text-destructive border-destructive/30";
+              statusText = "Atrasado";
+              StatusIcon = AlertCircle;
+            } else if (statusHorario === "iminente") {
+              statusColor = "bg-warning/10 text-warning border-warning/30";
+              statusText = "Embarcando";
+              StatusIcon = AlertCircle;
+            }
+
+            const [origem, destino] = item.rota.includes('→') ? item.rota.split('→').map(s => s.trim()) : [item.cidade_origem || 'Origem', item.cidade_destino || 'Destino'];
+
+            return (
+              <Card 
+                key={item.id} 
+                className={`glass-card overflow-hidden flex flex-col lg:flex-row transition-all hover:border-primary/40 group ${isWarning && !item.passou ? (statusHorario === "atrasado" ? "border-destructive/40 shadow-[0_0_15px_rgba(239,68,68,0.1)]" : "border-warning/40") : ""}`}
+              >
+                {/* Timeline Section */}
+                <div className={`p-6 flex lg:flex-col justify-between items-center lg:items-start lg:w-56 lg:border-r border-border/50 shrink-0 ${!item.passou && isWarning ? (statusHorario === 'atrasado' ? 'bg-destructive/5' : 'bg-warning/5') : 'bg-card-elevated/20'}`}>
+                  <div className="flex flex-col text-center lg:text-left">
+                    <p className="text-xs uppercase font-semibold text-muted-foreground mb-1 tracking-wider">Partida</p>
+                    <h3 className="font-display text-2xl font-bold">{item.hora_saida_prevista || "--"}</h3>
+                    <p className="text-sm font-medium text-foreground/80">{origem}</p>
+                  </div>
+                  
+                  <div className="hidden lg:flex flex-col items-center my-3 mx-4 self-center opacity-30">
+                    <div className="w-1 h-1 rounded-full bg-foreground mb-1"></div>
+                    <div className="w-1 h-1 rounded-full bg-foreground mb-1"></div>
+                    <div className="w-1 h-1 rounded-full bg-foreground mb-1"></div>
+                    <ArrowRight className="h-4 w-4 text-foreground rotate-90 my-1" />
+                  </div>
+                  
+                  <div className="flex lg:hidden flex-1 items-center mx-6 opacity-30">
+                    <div className="w-full border-t-2 border-dashed border-foreground/50"></div>
+                    <ArrowRight className="h-4 w-4 text-foreground shrink-0 ml-2" />
+                  </div>
+
+                  <div className="flex flex-col text-center lg:text-left">
+                    <p className="text-xs uppercase font-semibold text-muted-foreground mb-1 tracking-wider">Chegada <span className="lowercase text-[10px]">(Aviso)</span></p>
+                    <h3 className="font-display text-xl font-semibold text-muted-foreground">{item.previsao_chegada || "--"}</h3>
+                    <p className="text-sm font-medium text-foreground/80">{destino}</p>
+                  </div>
+                </div>
+
+                {/* Info Section */}
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs rounded-md uppercase font-bold tracking-wider px-2 py-0.5">Serviço #{item.servico}</Badge>
+                          <Badge variant="outline" className={`border ${statusColor} gap-1 font-semibold`}>
+                            <StatusIcon className="h-3 w-3" /> {statusText}
+                          </Badge>
+                        </div>
+                        {!item.passou && (
+                          <p className={`text-sm font-medium mt-2 flex items-center gap-1.5 ${statusHorario === "atrasado" ? "text-destructive" : statusHorario === "iminente" ? "text-warning" : "text-muted-foreground"}`}>
+                            <Clock className="h-3.5 w-3.5" />
+                            {calcularTempoRestante(item.hora_saida_prevista, item.passou)}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {item.passou ? (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => abrirModal(item)} className="h-8">Editar Check-in</Button>
+                            <Button size="sm" variant="secondary" onClick={() => copymsg(item)} className="h-8 gap-1.5"><Copy className="h-3 w-3" /> Relatório</Button>
+                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                          </>
+                        ) : (
+                          <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95">Fazer Check-in</Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Operational Details row */}
+                  <div className="mt-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-4 border-t border-border/50">
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <div className="bg-secondary/50 p-2 rounded-lg text-muted-foreground"><Bus className="h-4 w-4" /></div>
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold">Veículo</p>
+                        <p className="font-medium">{item.carro && item.carro !== "--" ? item.carro : <span className="text-muted-foreground/60 italic">A definir</span>}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <div className="bg-secondary/50 p-2 rounded-lg text-muted-foreground"><User className="h-4 w-4" /></div>
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold">Motorista</p>
+                        <p className="font-medium truncate">{item.motorista || <span className="text-muted-foreground/60 italic">A definir</span>}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 text-sm">
+                      <div className="bg-secondary/50 p-2 rounded-lg text-muted-foreground"><Package className="h-4 w-4" /></div>
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold">Encomendas</p>
+                        <p className="font-medium truncate">{item.encomenda || <span className="text-muted-foreground/60 italic">Nenhuma</span>}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {item.passou && item.hora_real && (
+                    <div className="mt-3 bg-success/5 border border-success/20 rounded-lg p-2.5 flex items-center justify-between">
+                       <p className="text-xs text-success/80 font-medium flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> Horário real do Check-in: <span className="font-bold">{item.hora_real}</span></p>
+                       {item.observacao && <p className="text-xs text-muted-foreground italic truncate max-w-[50%]">"{item.observacao}"</p>}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* modal confirmar / check-in */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="rounded-2xl max-w-md bg-card/95 backdrop-blur-xl border-border/60 shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Novo embarque</DialogTitle>
+            <DialogTitle className="font-display text-xl">{embarqueSelecionado?.passou ? 'Editar Check-in' : 'Fazer Check-in do Veículo'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <Input placeholder="Número do serviço" value={novoEmbarque.servico} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, servico: e.target.value })} />
-            <Input placeholder="Cidade origem" value={novoEmbarque.cidadeOrigem} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, cidadeOrigem: e.target.value })} />
-            <Input placeholder="Cidade destino" value={novoEmbarque.cidadeDestino} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, cidadeDestino: e.target.value })} />
-            <Input placeholder="Saída prevista (HH:mm)" value={novoEmbarque.horaSaidaPrevista} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, horaSaidaPrevista: e.target.value })} />
-            <Input placeholder="Hora real que saiu (HH:mm)" value={novoEmbarque.horaSaidaReal} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, horaSaidaReal: e.target.value })} />
-            <Button className="w-full rounded-xl" onClick={criarNovoEmbarque}>Salvar embarque</Button>
+          <div className="space-y-4 pt-2">
+            
+            {embarqueSelecionado && !embarqueSelecionado.passou && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm flex items-center gap-3">
+                 <div className="bg-primary/10 p-2 rounded-full"><Bus className="h-4 w-4 text-primary" /></div>
+                 <div>
+                   <p className="font-medium">Serviço #{embarqueSelecionado.servico}</p>
+                   <p className="text-xs text-muted-foreground">Previsão: {embarqueSelecionado.hora_saida_prevista}</p>
+                 </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Hora real do check-in</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={form.horaReal} onChange={(e) => setForm({ ...form, horaReal: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Número / Placa do Carro</Label>
+                <div className="relative">
+                  <Bus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input className="pl-9 bg-background/50" placeholder="Ex: 1024" value={form.carro} onChange={(e) => setForm({ ...form, carro: e.target.value })} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Motorista</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-9 bg-background/50" placeholder="Nome do Motorista" value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Encomendas</Label>
+              <div className="relative">
+                <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input className="pl-9 bg-background/50" placeholder="Ex: 2 caixas para Vitória" value={form.encomenda} onChange={(e) => setForm({ ...form, encomenda: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Observações Adicionais</Label>
+              <Input className="bg-background/50" placeholder="Algum detalhe relevante?" value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
+            </div>
+            
+            <div className="pt-2">
+              <Button className="w-full rounded-xl bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={confirmarEmbarque}>
+                {embarqueSelecionado?.passou ? 'Salvar Edições' : 'Confirmar Check-in'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* modal confirmar */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="rounded-2xl max-w-lg">
+      {/* modal novo embarque */}
+      <Dialog open={novoModalOpen} onOpenChange={setNovoModalOpen}>
+        <DialogContent className="rounded-2xl max-w-md bg-card/95 backdrop-blur-xl border-border/60 shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Confirmar embarque</DialogTitle>
+            <DialogTitle className="font-display text-xl">Novo Serviço de Frota</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <Input placeholder="Hora real de chegada" value={form.horaReal} onChange={(e) => setForm({ ...form, horaReal: e.target.value })} />
-            <Input placeholder="Número do carro" value={form.carro} onChange={(e) => setForm({ ...form, carro: e.target.value })} />
-            <Input placeholder="Motorista" value={form.motorista} onChange={(e) => setForm({ ...form, motorista: e.target.value })} />
-            <Input placeholder="Encomenda" value={form.encomenda} onChange={(e) => setForm({ ...form, encomenda: e.target.value })} />
-            <Input placeholder="Observação" value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
-            <Button variant="outline" className="w-full rounded-xl" onClick={copymsg}>Copiar mensagem</Button>
-            <Button className="w-full rounded-xl" onClick={confirmarEmbarque}>Finalizar embarque</Button>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>Número do Serviço</Label>
+              <Input className="bg-background/50" placeholder="Ex: 8599" value={novoEmbarque.servico} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, servico: e.target.value })} />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Cidade Origem</Label>
+                <Input className="bg-background/50" placeholder="Saindo de..." value={novoEmbarque.cidadeOrigem} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, cidadeOrigem: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cidade Destino</Label>
+                <Input className="bg-background/50" placeholder="Indo para..." value={novoEmbarque.cidadeDestino} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, cidadeDestino: e.target.value })} />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Saída Prevista</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={novoEmbarque.horaSaidaPrevista} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, horaSaidaPrevista: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Hora Real (Opcional)</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={novoEmbarque.horaSaidaReal} onChange={(e) => setNovoEmbarque({ ...novoEmbarque, horaSaidaReal: e.target.value })} />
+                </div>
+              </div>
+            </div>
+            
+            <div className="pt-2">
+              <Button className="w-full rounded-xl bg-primary" onClick={criarNovoEmbarque}>Criar Serviço</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

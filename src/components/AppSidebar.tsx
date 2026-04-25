@@ -13,8 +13,8 @@ const main = [
   { title: "Entregas", url: "/entregas", icon: CalendarDays },
   { title: "Frotas", url: "/PaginaEmbarques", icon: Bus },
   { title: "Clientes", url: "/passageiros", icon: Users },
-  // { title: "CRM / Funil", url: "/crm", icon: KanbanSquare },
-  // { title: "Prospecção", url: "/prospeccao", icon: Sparkles },
+  { title: "CRM / Funil", url: "/crm", icon: KanbanSquare },
+  { title: "Prospecção", url: "/prospeccao", icon: Sparkles },
 ];
 
 const tools = [

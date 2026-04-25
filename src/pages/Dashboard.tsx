@@ -23,6 +23,8 @@ interface DashboardStats {
   veiculosManutencao: number;
   
   proximos: any[];
+  atrasadosFrota: number;
+  proxFrota: any;
 }
 
 export default function Dashboard() {
@@ -34,12 +36,13 @@ export default function Dashboard() {
       const now = new Date().toISOString();
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
       
-      const [embMonth, embFuture, pax, lds, veics] = await Promise.all([
+      const [embMonth, embFuture, pax, lds, veics, embDiaResp] = await Promise.all([
         supabase.from("embarques").select("valor_operacao, custo_operacao").gte("data_saida", monthStart),
         supabase.from("embarques").select("*, veiculos(placa)").gte("data_saida", now).order("data_saida").limit(5),
         supabase.from("passageiros").select("id, ticket_medio, tag, ultima_viagem, total_viagens"),
         supabase.from("leads").select("id, valor_estimado, etapa"),
         supabase.from("veiculos").select("id, status"),
+        supabase.from("embarques_dia").select("*").eq("data_operacao", new Date().toISOString().slice(0, 10)),
       ]);
 
       // Financeiro
@@ -64,10 +67,42 @@ export default function Dashboard() {
         return Date.now() - new Date(p.ultima_viagem).getTime() > D60;
       }).length;
 
-      // Frota
+      // Frota (Veículos)
       const veicData = veics.data ?? [];
       const veiculosOperando = veicData.filter(v => v.status === "operando").length;
       const veiculosManutencao = veicData.filter(v => v.status === "manutencao").length;
+
+      // Frotas KPI (Hoje)
+      const embDia = embDiaResp.data ?? [];
+      const nowTime = new Date();
+      const agoraMin = nowTime.getHours() * 60 + nowTime.getMinutes();
+      const parseTimeMin = (hora: string | null) => {
+        if (!hora || typeof hora !== "string") return null;
+        const horaFormatada = hora.slice(0, 5);
+        if (!horaFormatada.includes(":")) return null;
+        const [h, m] = horaFormatada.split(":").map(Number);
+        if (isNaN(h) || isNaN(m)) return null;
+        return h * 60 + m;
+      };
+      
+      let proxFrota = null;
+      let minDiffPos = Infinity;
+      let atrasadosFrota = 0;
+
+      for (const e of embDia) {
+        if (e.passou) continue;
+        const t = parseTimeMin(e.hora_saida_prevista || e.previsao_chegada);
+        if (t === null) continue;
+        const diff = t - agoraMin;
+        if (diff < 0) {
+          atrasadosFrota++;
+        } else {
+          if (diff < minDiffPos) {
+            minDiffPos = diff;
+            proxFrota = e;
+          }
+        }
+      }
 
       setStats({
         faturamentoMes, custoMes, lucroMes, comissaoEstimada,
@@ -75,6 +110,7 @@ export default function Dashboard() {
         totalPassageiros: paxData.length, passageirosInativos, oportunidadesRetorno,
         veiculosOperando, veiculosManutencao,
         proximos: embFuture.data ?? [],
+        atrasadosFrota, proxFrota,
       });
     };
     load();
@@ -102,8 +138,8 @@ export default function Dashboard() {
       </div>
 
       <div>
-        <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><DollarSign className="h-5 w-5 text-primary" /> Visão Financeira</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><DollarSign className="h-5 w-5 text-primary" /> Visão Financeira e Geral</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-primary group">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Faturamento do Mês</p>
             <p className="mt-2 font-display text-2xl font-bold text-gradient-gold">R$ {stats.faturamentoMes.toLocaleString("pt-BR")}</p>
@@ -115,20 +151,41 @@ export default function Dashboard() {
           <Card className="glass-card p-5 hover:border-primary/40 transition-all group">
             <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">Lucro da Empresa <Wallet className="h-4 w-4 opacity-50" /></p>
             <p className="mt-2 font-display text-2xl font-bold">R$ {stats.lucroMes.toLocaleString("pt-BR")}</p>
-            <p className="text-xs text-muted-foreground mt-2">Faturamento - Custos operacionais</p>
+            <p className="text-xs text-muted-foreground mt-2">Faturamento - Custos</p>
           </Card>
           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-warning group">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Pipeline em Negociação</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Pipeline Negociação</p>
             <p className="mt-2 font-display text-2xl font-bold">R$ {stats.valorEmNegociacao.toLocaleString("pt-BR")}</p>
             <div className="mt-2 flex items-center gap-1.5 text-xs">
-              <span className="text-muted-foreground">Comissão Potencial:</span>
+              <span className="text-muted-foreground">Comissão:</span>
               <span className="text-success font-semibold">R$ {stats.comissaoPotencial.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </Card>
           <Card className="glass-card p-5 hover:border-primary/40 transition-all group">
             <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">Leads Ativos <Activity className="h-4 w-4 opacity-50" /></p>
             <p className="mt-2 font-display text-2xl font-bold">{stats.leadsAtivos}</p>
-            <p className="text-xs text-muted-foreground mt-2">Oportunidades quentes abertas</p>
+            <p className="text-xs text-muted-foreground mt-2">Oportunidades abertas</p>
+          </Card>
+          <Card className={`glass-card p-5 hover:border-primary/40 transition-all border-l-4 ${stats.atrasadosFrota > 0 ? "border-l-destructive shadow-[0_0_15px_rgba(239,68,68,0.1)]" : "border-l-primary"} group`}>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">
+              Monitor Frotas <Bus className={`h-4 w-4 ${stats.atrasadosFrota > 0 ? "text-destructive animate-pulse" : "opacity-50"}`} />
+            </p>
+            {stats.atrasadosFrota > 0 ? (
+              <p className="mt-2 font-display text-2xl font-bold text-destructive truncate">{stats.atrasadosFrota} Atrasado{stats.atrasadosFrota > 1 ? 's' : ''}</p>
+            ) : stats.proxFrota ? (
+              <p className="mt-2 font-display text-2xl font-bold text-foreground truncate">{stats.proxFrota.hora_saida_prevista || stats.proxFrota.previsao_chegada}</p>
+            ) : (
+              <p className="mt-2 font-display text-2xl font-bold text-muted-foreground truncate">Livre</p>
+            )}
+            {stats.proxFrota && stats.atrasadosFrota === 0 && (
+              <p className="text-[11px] text-muted-foreground mt-2 truncate">Serviço #{stats.proxFrota.servico}</p>
+            )}
+            {stats.atrasadosFrota > 0 && stats.proxFrota && (
+              <p className="text-[11px] text-muted-foreground mt-2 truncate">Próximo às {stats.proxFrota.hora_saida_prevista}</p>
+            )}
+            {!stats.proxFrota && stats.atrasadosFrota === 0 && (
+              <p className="text-[11px] text-muted-foreground mt-2">Nenhum pendente</p>
+            )}
           </Card>
         </div>
       </div>
