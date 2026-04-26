@@ -260,6 +260,7 @@ export default function PaginaEmbarques() {
   const pendentes = total - concluidos;
 
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroSentido, setFiltroSentido] = useState<"todos" | "descida" | "subida">("todos");
 
   const embarquesFiltrados = useMemo(() => {
     const horaAtualMinutos = agora.getHours() * 60 + agora.getMinutes();
@@ -268,6 +269,9 @@ export default function PaginaEmbarques() {
         item.servico?.toLowerCase().includes(busca.toLowerCase()) ||
         item.rota?.toLowerCase().includes(busca.toLowerCase());
       if (!matchBusca) return false;
+
+      const sentidoItem = ((item as any).sentido as string) || "nenhum";
+      if (filtroSentido !== "todos" && sentidoItem !== filtroSentido) return false;
 
       const horaItem = item.hora_saida_prevista || item.previsao_chegada || "";
       const horaItemMinutos = parseTimeMin(horaItem) ?? 0;
@@ -284,7 +288,7 @@ export default function PaginaEmbarques() {
       const bMin = parseTimeMin(b.hora_saida_prevista || b.previsao_chegada) ?? 0;
       return aMin - bMin;
     });
-  }, [embarques, busca, filtroStatus]);
+  }, [embarques, busca, filtroStatus, filtroSentido]);
 
   const calcularTempoRestante = (hora: string | null, passou: boolean) => {
     if (!hora || passou) return "Finalizado";
