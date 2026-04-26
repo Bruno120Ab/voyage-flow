@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight } from "lucide-react";
+import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -45,6 +45,7 @@ export default function PaginaEmbarques() {
     horaSaidaReal: "",
     carro: "",
     prioridade: "Normal" as "Normal" | "Alta" | "Baixa",
+    sentido: "nenhum" as "descida" | "subida" | "nenhum",
   });
   const [idEditando, setIdEditando] = useState<string | null>(null);
 
@@ -113,7 +114,7 @@ export default function PaginaEmbarques() {
 
   const abrirModalNovo = () => {
     setIdEditando(null);
-    setFormServico({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", carro: "--", prioridade: "Normal" });
+    setFormServico({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", carro: "--", prioridade: "Normal", sentido: "nenhum" });
     setNovoModalOpen(true);
   };
 
@@ -127,6 +128,7 @@ export default function PaginaEmbarques() {
       horaSaidaReal: item.hora_saida_real || "",
       carro: item.carro || "--",
       prioridade: (item.prioridade as any) || "Normal",
+      sentido: ((item as any).sentido as any) || "nenhum",
     });
     setNovoModalOpen(true);
   };
@@ -212,7 +214,8 @@ export default function PaginaEmbarques() {
         hora_saida_real: formServico.horaSaidaReal,
         carro: formServico.carro && formServico.carro !== "--" ? formServico.carro : "--",
         previsao_chegada: previsao,
-      }).eq("id", idEditando);
+        sentido: formServico.sentido,
+      } as any).eq("id", idEditando);
       
       if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
       else {
@@ -234,7 +237,8 @@ export default function PaginaEmbarques() {
         prioridade: formServico.prioridade,
         data_operacao: hojeOperacao,
         created_by: user?.id ?? null,
-      });
+        sentido: formServico.sentido,
+      } as any);
       if (error) {
         toast({ title: "Erro ao criar", description: error.message, variant: "destructive" });
         return;
@@ -256,6 +260,7 @@ export default function PaginaEmbarques() {
   const pendentes = total - concluidos;
 
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroSentido, setFiltroSentido] = useState<"todos" | "descida" | "subida">("todos");
 
   const embarquesFiltrados = useMemo(() => {
     const horaAtualMinutos = agora.getHours() * 60 + agora.getMinutes();
@@ -264,6 +269,9 @@ export default function PaginaEmbarques() {
         item.servico?.toLowerCase().includes(busca.toLowerCase()) ||
         item.rota?.toLowerCase().includes(busca.toLowerCase());
       if (!matchBusca) return false;
+
+      const sentidoItem = ((item as any).sentido as string) || "nenhum";
+      if (filtroSentido !== "todos" && sentidoItem !== filtroSentido) return false;
 
       const horaItem = item.hora_saida_prevista || item.previsao_chegada || "";
       const horaItemMinutos = parseTimeMin(horaItem) ?? 0;
@@ -280,7 +288,7 @@ export default function PaginaEmbarques() {
       const bMin = parseTimeMin(b.hora_saida_prevista || b.previsao_chegada) ?? 0;
       return aMin - bMin;
     });
-  }, [embarques, busca, filtroStatus]);
+  }, [embarques, busca, filtroStatus, filtroSentido]);
 
   const calcularTempoRestante = (hora: string | null, passou: boolean) => {
     if (!hora || passou) return "Finalizado";
@@ -346,6 +354,15 @@ export default function PaginaEmbarques() {
           <Button size="sm" variant={filtroStatus === "pendentes" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("pendentes")}>Pendentes</Button>
           <Button size="sm" variant={filtroStatus === "concluidos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("concluidos")}>Concluídos</Button>
           <Button size="sm" variant={filtroStatus === "faltamHoje" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("faltamHoje")}>Faltam Hoje</Button>
+        </div>
+        <div className="flex gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
+          <Button size="sm" variant={filtroSentido === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroSentido("todos")}>Todos sentidos</Button>
+          <Button size="sm" variant={filtroSentido === "descida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1" onClick={() => setFiltroSentido("descida")}>
+            <ArrowDownRight className="h-3 w-3 text-primary" /> Descendo
+          </Button>
+          <Button size="sm" variant={filtroSentido === "subida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1" onClick={() => setFiltroSentido("subida")}>
+            <ArrowUpRight className="h-3 w-3 text-warning" /> Subindo
+          </Button>
         </div>
       </div>
 
@@ -420,11 +437,21 @@ export default function PaginaEmbarques() {
                   <div>
                     <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                       <div>
-                        <div className="flex items-center gap-2 mb-1.5">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs rounded-md uppercase font-bold tracking-wider px-2 py-0.5">Serviço #{item.servico}</Badge>
                           <Badge variant="outline" className={`border ${statusColor} gap-1 font-semibold`}>
                             <StatusIcon className="h-3 w-3" /> {statusText}
                           </Badge>
+                          {((item as any).sentido === "descida") && (
+                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 gap-1 text-xs">
+                              <ArrowDownRight className="h-3 w-3" /> Descendo
+                            </Badge>
+                          )}
+                          {((item as any).sentido === "subida") && (
+                            <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 gap-1 text-xs">
+                              <ArrowUpRight className="h-3 w-3" /> Subindo
+                            </Badge>
+                          )}
                         </div>
                         {!item.passou && (
                           <p className={`text-sm font-medium mt-2 flex items-center gap-1.5 ${statusHorario === "atrasado" ? "text-destructive" : statusHorario === "iminente" ? "text-warning" : "text-muted-foreground"}`}>
@@ -579,6 +606,18 @@ export default function PaginaEmbarques() {
                 <Label>Cidade Destino</Label>
                 <Input className="bg-background/50" placeholder="Indo para..." value={formServico.cidadeDestino} onChange={(e) => setFormServico({ ...formServico, cidadeDestino: e.target.value })} />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Sentido</Label>
+              <Select value={formServico.sentido} onValueChange={(v: any) => setFormServico({ ...formServico, sentido: v })}>
+                <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhum">Não definido</SelectItem>
+                  <SelectItem value="descida">⬇ Descendo (Litoral – Ilhéus / Porto Seguro)</SelectItem>
+                  <SelectItem value="subida">⬆ Subindo (Sudoeste – Conquista)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
