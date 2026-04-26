@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          chave: string
+          updated_at: string
+          valor: Json
+        }
+        Insert: {
+          chave: string
+          updated_at?: string
+          valor?: Json
+        }
+        Update: {
+          chave?: string
+          updated_at?: string
+          valor?: Json
+        }
+        Relationships: []
+      }
+      cidades_rota: {
+        Row: {
+          antes: string | null
+          contato: string | null
+          created_at: string
+          created_by: string | null
+          depois: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          proprietario: string | null
+          updated_at: string
+        }
+        Insert: {
+          antes?: string | null
+          contato?: string | null
+          created_at?: string
+          created_by?: string | null
+          depois?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          proprietario?: string | null
+          updated_at?: string
+        }
+        Update: {
+          antes?: string | null
+          contato?: string | null
+          created_at?: string
+          created_by?: string | null
+          depois?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          proprietario?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contatos: {
         Row: {
           cidade: string | null
@@ -471,6 +528,36 @@ export type Database = {
           placa?: string
           status?: Database["public"]["Enums"]["veiculo_status"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      vendas_diarias: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: string
+          id: string
+          observacao: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data: string
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+          valor?: number
         }
         Relationships: []
       }

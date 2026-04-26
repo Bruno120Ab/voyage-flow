@@ -28,63 +28,60 @@ export default function Financeiro() {
   const [valorCaixa, setValorCaixa] = useState("");
   const [dataCaixa, setDataCaixa] = useState(new Date().toISOString().slice(0, 10));
 
-  useEffect(() => {
-    // 1. Load from LocalStorage
-    const storedMeta = localStorage.getItem("voyage_meta_mes");
-    if (storedMeta) setMetaMes(Number(storedMeta));
+  const carregar = async () => {
+    const [{ data: cfg }, { data: vendasDb }, { data: passDb }] = await Promise.all([
+      supabase.from("app_config").select("valor").eq("chave", "meta_mes").maybeSingle(),
+      supabase.from("vendas_diarias").select("id, data, valor").order("data", { ascending: false }),
+      supabase.from("passageiros").select("ticket_medio, tag").in("tag", ["retorno", "quente"]),
+    ]);
 
-    const storedVendas = localStorage.getItem("voyage_vendas_diarias");
-    if (storedVendas) {
-      try {
-        setVendas(JSON.parse(storedVendas));
-      } catch (e) {
-        console.error("Erro ao fazer parse das vendas diárias", e);
-      }
+    if (cfg?.valor && typeof (cfg.valor as any).meta === "number") {
+      setMetaMes((cfg.valor as any).meta);
     }
+    if (vendasDb) setVendas(vendasDb.map((v: any) => ({ id: v.id, data: v.data, valor: Number(v.valor) })));
+    if (passDb) {
+      const total = passDb.reduce((acc, p: any) => acc + Number(p.ticket_medio || 0), 0);
+      setPotencial(total);
+    }
+    setLoading(false);
+  };
 
-    // 2. Load Pipeline from Supabase
-    const loadPotencial = async () => {
-      const { data } = await supabase.from("passageiros").select("ticket_medio, tag").in("tag", ["retorno", "quente"]);
-      if (data) {
-        const total = data.reduce((acc, p) => acc + Number(p.ticket_medio || 0), 0);
-        setPotencial(total);
-      }
-      setLoading(false);
-    };
+  useEffect(() => {
+    carregar();
 
-    loadPotencial();
+    const ch = supabase
+      .channel("vendas-diarias-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "vendas_diarias" }, () => carregar())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
-  // Sync to localstorage when changes happen
-  useEffect(() => {
-    localStorage.setItem("voyage_meta_mes", metaMes.toString());
-  }, [metaMes]);
-
-  useEffect(() => {
-    localStorage.setItem("voyage_vendas_diarias", JSON.stringify(vendas));
-  }, [vendas]);
-
-  const handleSaveMeta = (e: React.FormEvent) => {
+  const handleSaveMeta = async (e: React.FormEvent) => {
     e.preventDefault();
+    await supabase.from("app_config").upsert({ chave: "meta_mes", valor: { meta: metaMes } as any });
     setIsEditingMeta(false);
   };
 
-  const handleFecharCaixa = (e: React.FormEvent) => {
+  const handleFecharCaixa = async (e: React.FormEvent) => {
     e.preventDefault();
     const valorNum = Number(valorCaixa.replace(/[^\d.-]/g, ''));
     if (!valorNum || valorNum <= 0) return;
 
-    const novaVenda: VendaDiaria = {
-      id: Math.random().toString(36).substring(7),
-      data: dataCaixa,
-      valor: valorNum,
-    };
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("vendas_diarias")
+      .insert({ data: dataCaixa, valor: valorNum, created_by: user?.id })
+      .select("id, data, valor")
+      .single();
 
-    setVendas(prev => [novaVenda, ...prev]);
+    if (!error && data) {
+      setVendas(prev => [{ id: data.id, data: data.data, valor: Number(data.valor) }, ...prev]);
+    }
     setValorCaixa("");
   };
 
-  const removerVenda = (id: string) => {
+  const removerVenda = async (id: string) => {
+    await supabase.from("vendas_diarias").delete().eq("id", id);
     setVendas(prev => prev.filter(v => v.id !== id));
   };
 
