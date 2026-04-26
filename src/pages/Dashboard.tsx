@@ -25,6 +25,12 @@ interface DashboardStats {
   proximos: any[];
   atrasadosFrota: number;
   proxFrota: any;
+  subindo: any[];
+  descendo: any[];
+  proxSubindo: any;
+  proxDescendo: any;
+  atrasadosSubindo: number;
+  atrasadosDescendo: number;
 }
 
 export default function Dashboard() {
