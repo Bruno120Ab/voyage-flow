@@ -267,6 +267,56 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div>
+        <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Bus className="h-5 w-5 text-primary" /> Monitor de Frotas — Hoje</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { titulo: "Frota Descendo", icone: ArrowDownRight, lista: stats.descendo, prox: stats.proxDescendo, atrasados: stats.atrasadosDescendo, accent: "text-blue-400", border: "border-l-blue-500", desc: "Sentido litoral (Ilhéus / Porto)" },
+            { titulo: "Frota Subindo", icone: ArrowUpRight, lista: stats.subindo, prox: stats.proxSubindo, atrasados: stats.atrasadosSubindo, accent: "text-amber-400", border: "border-l-amber-500", desc: "Sentido interior (Conquista)" },
+          ].map((b) => {
+            const Icone = b.icone;
+            const pendentes = b.lista.filter((e: any) => !e.passou).length;
+            return (
+              <Card key={b.titulo} className={`glass-card p-5 hover:border-primary/40 transition-all border-l-4 ${b.atrasados > 0 ? "border-l-destructive shadow-[0_0_15px_rgba(239,68,68,0.1)]" : b.border}`}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <Icone className={`h-3.5 w-3.5 ${b.accent}`} /> {b.titulo}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{b.desc}</p>
+                  </div>
+                  <Badge variant="outline" className="bg-background/40">{b.lista.length} hoje</Badge>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Pendentes</p>
+                    <p className="font-display text-xl font-bold">{pendentes}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Atrasados</p>
+                    <p className={`font-display text-xl font-bold ${b.atrasados > 0 ? "text-destructive" : "text-muted-foreground"}`}>{b.atrasados}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Próximo</p>
+                    <p className="font-display text-xl font-bold truncate">
+                      {b.prox ? (b.prox.hora_saida_prevista || b.prox.previsao_chegada || "—") : "—"}
+                    </p>
+                  </div>
+                </div>
+                {b.prox && (
+                  <p className="text-[11px] text-muted-foreground mt-3 truncate">
+                    Serviço #{b.prox.servico} • {b.prox.rota || "rota"} • Carro {b.prox.carro}
+                  </p>
+                )}
+                {b.lista.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground mt-3">Nenhum serviço neste sentido hoje.</p>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card className="glass-card p-6">
