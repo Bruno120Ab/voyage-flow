@@ -437,11 +437,21 @@ export default function PaginaEmbarques() {
                   <div>
                     <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                       <div>
-                        <div className="flex items-center gap-2 mb-1.5">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs rounded-md uppercase font-bold tracking-wider px-2 py-0.5">Serviço #{item.servico}</Badge>
                           <Badge variant="outline" className={`border ${statusColor} gap-1 font-semibold`}>
                             <StatusIcon className="h-3 w-3" /> {statusText}
                           </Badge>
+                          {((item as any).sentido === "descida") && (
+                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 gap-1 text-xs">
+                              <ArrowDownRight className="h-3 w-3" /> Descendo
+                            </Badge>
+                          )}
+                          {((item as any).sentido === "subida") && (
+                            <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 gap-1 text-xs">
+                              <ArrowUpRight className="h-3 w-3" /> Subindo
+                            </Badge>
+                          )}
                         </div>
                         {!item.passou && (
                           <p className={`text-sm font-medium mt-2 flex items-center gap-1.5 ${statusHorario === "atrasado" ? "text-destructive" : statusHorario === "iminente" ? "text-warning" : "text-muted-foreground"}`}>
@@ -596,6 +606,18 @@ export default function PaginaEmbarques() {
                 <Label>Cidade Destino</Label>
                 <Input className="bg-background/50" placeholder="Indo para..." value={formServico.cidadeDestino} onChange={(e) => setFormServico({ ...formServico, cidadeDestino: e.target.value })} />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Sentido</Label>
+              <Select value={formServico.sentido} onValueChange={(v: any) => setFormServico({ ...formServico, sentido: v })}>
+                <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhum">Não definido</SelectItem>
+                  <SelectItem value="descida">⬇ Descendo (Litoral – Ilhéus / Porto Seguro)</SelectItem>
+                  <SelectItem value="subida">⬆ Subindo (Sudoeste – Conquista)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
