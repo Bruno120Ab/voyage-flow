@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bus, Users, TrendingUp, AlertTriangle, Calendar, Star, CheckCircle2, ArrowUpRight, Loader2, DollarSign, Wallet, Activity, MessageCircle } from "lucide-react";
+import { Bus, Users, TrendingUp, AlertTriangle, Calendar, Star, CheckCircle2, ArrowUpRight, ArrowDownRight, Loader2, DollarSign, Wallet, Activity, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
