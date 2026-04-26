@@ -110,6 +110,26 @@ export default function Dashboard() {
         }
       }
 
+      // Subindo / Descendo
+      const computeDir = (lista: any[]) => {
+        let prox: any = null;
+        let minDiff = Infinity;
+        let atrasados = 0;
+        for (const e of lista) {
+          if (e.passou) continue;
+          const t = parseTimeMin(e.hora_saida_prevista || e.previsao_chegada);
+          if (t === null) continue;
+          const diff = t - agoraMin;
+          if (diff < 0) atrasados++;
+          else if (diff < minDiff) { minDiff = diff; prox = e; }
+        }
+        return { prox, atrasados };
+      };
+      const subindo = embDia.filter((e: any) => e.sentido === "subida");
+      const descendo = embDia.filter((e: any) => e.sentido === "descida");
+      const sUp = computeDir(subindo);
+      const sDown = computeDir(descendo);
+
       setStats({
         faturamentoMes, custoMes, lucroMes, comissaoEstimada,
         valorEmNegociacao, comissaoPotencial, leadsAtivos: leadsAtivos.length,
@@ -117,6 +137,9 @@ export default function Dashboard() {
         veiculosOperando, veiculosManutencao,
         proximos: embFuture.data ?? [],
         atrasadosFrota, proxFrota,
+        subindo, descendo,
+        proxSubindo: sUp.prox, proxDescendo: sDown.prox,
+        atrasadosSubindo: sUp.atrasados, atrasadosDescendo: sDown.atrasados,
       });
     };
     load();
