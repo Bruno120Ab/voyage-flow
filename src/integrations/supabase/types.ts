@@ -263,6 +263,7 @@ export type Database = {
           previsao_chegada: string | null
           prioridade: Database["public"]["Enums"]["embarque_dia_prioridade"]
           rota: string
+          sentido: Database["public"]["Enums"]["sentido_rota"]
           servico: string
           status: Database["public"]["Enums"]["embarque_dia_status"]
           updated_at: string
@@ -285,6 +286,7 @@ export type Database = {
           previsao_chegada?: string | null
           prioridade?: Database["public"]["Enums"]["embarque_dia_prioridade"]
           rota: string
+          sentido?: Database["public"]["Enums"]["sentido_rota"]
           servico: string
           status?: Database["public"]["Enums"]["embarque_dia_status"]
           updated_at?: string
@@ -307,6 +309,7 @@ export type Database = {
           previsao_chegada?: string | null
           prioridade?: Database["public"]["Enums"]["embarque_dia_prioridade"]
           rota?: string
+          sentido?: Database["public"]["Enums"]["sentido_rota"]
           servico?: string
           status?: Database["public"]["Enums"]["embarque_dia_status"]
           updated_at?: string
@@ -610,6 +613,7 @@ export type Database = {
         | "inativo"
         | "quente"
       profile_status: "pending" | "ativo" | "inativo"
+      sentido_rota: "descida" | "subida" | "nenhum"
       veiculo_status: "operando" | "agendado" | "finalizado" | "manutencao"
     }
     CompositeTypes: {
@@ -770,6 +774,7 @@ export const Constants = {
         "quente",
       ],
       profile_status: ["pending", "ativo", "inativo"],
+      sentido_rota: ["descida", "subida", "nenhum"],
       veiculo_status: ["operando", "agendado", "finalizado", "manutencao"],
     },
   },
