@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight } from "lucide-react";
+import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -45,6 +45,7 @@ export default function PaginaEmbarques() {
     horaSaidaReal: "",
     carro: "",
     prioridade: "Normal" as "Normal" | "Alta" | "Baixa",
+    sentido: "nenhum" as "descida" | "subida" | "nenhum",
   });
   const [idEditando, setIdEditando] = useState<string | null>(null);
 
@@ -113,7 +114,7 @@ export default function PaginaEmbarques() {
 
   const abrirModalNovo = () => {
     setIdEditando(null);
-    setFormServico({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", carro: "--", prioridade: "Normal" });
+    setFormServico({ servico: "", cidadeOrigem: "", cidadeDestino: "", horaSaidaPrevista: "", horaSaidaReal: "", carro: "--", prioridade: "Normal", sentido: "nenhum" });
     setNovoModalOpen(true);
   };
 
@@ -127,6 +128,7 @@ export default function PaginaEmbarques() {
       horaSaidaReal: item.hora_saida_real || "",
       carro: item.carro || "--",
       prioridade: (item.prioridade as any) || "Normal",
+      sentido: ((item as any).sentido as any) || "nenhum",
     });
     setNovoModalOpen(true);
   };
@@ -212,7 +214,8 @@ export default function PaginaEmbarques() {
         hora_saida_real: formServico.horaSaidaReal,
         carro: formServico.carro && formServico.carro !== "--" ? formServico.carro : "--",
         previsao_chegada: previsao,
-      }).eq("id", idEditando);
+        sentido: formServico.sentido,
+      } as any).eq("id", idEditando);
       
       if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
       else {
@@ -234,7 +237,8 @@ export default function PaginaEmbarques() {
         prioridade: formServico.prioridade,
         data_operacao: hojeOperacao,
         created_by: user?.id ?? null,
-      });
+        sentido: formServico.sentido,
+      } as any);
       if (error) {
         toast({ title: "Erro ao criar", description: error.message, variant: "destructive" });
         return;
