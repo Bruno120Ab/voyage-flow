@@ -292,10 +292,10 @@ export default function Embarques() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
       <div className="flex items-end justify-between flex-wrap gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-widest text-primary mb-1">Operação</p>
-          <h1 className="font-display text-3xl font-bold">Embarques</h1>
-          <p className="text-muted-foreground mt-1">Dashboard, calendário e checklist por passageiro — nada escapa.</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">Embarques</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Dashboard, calendário e checklist por passageiro — nada escapa.</p>
         </div>
         <Dialog open={open} onOpenChange={(val) => { setOpen(val); if(!val) resetForm(); }}>
           <DialogTrigger asChild>
