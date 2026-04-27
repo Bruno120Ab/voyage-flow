@@ -348,18 +348,18 @@ export default function PaginaEmbarques() {
             onChange={(e) => setBusca(e.target.value)}
           />
         </div>
-        <div className="flex gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
-          <Button size="sm" variant={filtroStatus === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("todos")}>Todos</Button>
-          <Button size="sm" variant={filtroStatus === "pendentes" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("pendentes")}>Pendentes</Button>
-          <Button size="sm" variant={filtroStatus === "concluidos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("concluidos")}>Concluídos</Button>
-          <Button size="sm" variant={filtroStatus === "faltamHoje" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("faltamHoje")}>Faltam Hoje</Button>
+        <div className="flex flex-wrap gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
+          <Button size="sm" variant={filtroStatus === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("todos")}>Todos</Button>
+          <Button size="sm" variant={filtroStatus === "pendentes" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("pendentes")}>Pendentes</Button>
+          <Button size="sm" variant={filtroStatus === "concluidos" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("concluidos")}>Concluídos</Button>
+          <Button size="sm" variant={filtroStatus === "faltamHoje" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("faltamHoje")}>Faltam Hoje</Button>
         </div>
-        <div className="flex gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
-          <Button size="sm" variant={filtroSentido === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroSentido("todos")}>Todos sentidos</Button>
-          <Button size="sm" variant={filtroSentido === "descida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1" onClick={() => setFiltroSentido("descida")}>
+        <div className="flex flex-wrap gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
+          <Button size="sm" variant={filtroSentido === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroSentido("todos")}>Todos sentidos</Button>
+          <Button size="sm" variant={filtroSentido === "descida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1 flex-1 md:flex-none" onClick={() => setFiltroSentido("descida")}>
             <ArrowDownRight className="h-3 w-3 text-primary" /> Descendo
           </Button>
-          <Button size="sm" variant={filtroSentido === "subida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1" onClick={() => setFiltroSentido("subida")}>
+          <Button size="sm" variant={filtroSentido === "subida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1 flex-1 md:flex-none" onClick={() => setFiltroSentido("subida")}>
             <ArrowUpRight className="h-3 w-3 text-warning" /> Subindo
           </Button>
         </div>
