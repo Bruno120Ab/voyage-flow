@@ -157,7 +157,11 @@ export default function Financeiro() {
                 )}
                 
                 <h2 className="font-display text-5xl font-bold text-gradient-gold mt-2">R$ {totalVendidoMes.toLocaleString("pt-BR")}</h2>
-                <p className="text-xs text-muted-foreground mt-2">Faturado no mês atual</p>
+                <p className="text-xs text-muted-foreground mt-2">Faturado bruto no mês atual</p>
+                <div className="mt-3 px-4 py-2 rounded-lg bg-success/10 border border-success/30">
+                  <p className="text-[10px] uppercase font-semibold text-success/80 tracking-wider">Sua Comissão (8%)</p>
+                  <p className="font-display text-2xl font-bold text-success">R$ {(totalVendidoMes * 0.08).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
               </div>
 
               {/* Progress Bar */}
@@ -185,6 +189,7 @@ export default function Financeiro() {
               <div>
                 <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Média Diária</p>
                 <p className="font-display text-lg font-bold">R$ {mediaDiaria.toLocaleString("pt-BR", {maximumFractionDigits: 0})}</p>
+                <p className="text-[9px] text-success font-semibold">Com.: R$ {(mediaDiaria * 0.08).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</p>
               </div>
             </Card>
             
@@ -193,7 +198,7 @@ export default function Financeiro() {
               <div>
                 <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Melhor Dia</p>
                 <p className="font-display text-lg font-bold text-success">{melhorDia ? `R$ ${vendasPorDia[melhorDia].toLocaleString("pt-BR", {maximumFractionDigits: 0})}` : "—"}</p>
-                {melhorDia && <p className="text-[9px] text-muted-foreground">{melhorDia.split('-').reverse().join('/')}</p>}
+                {melhorDia && <p className="text-[9px] text-muted-foreground">{melhorDia.split('-').reverse().join('/')} • Com. R$ {(vendasPorDia[melhorDia] * 0.08).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</p>}
               </div>
             </Card>
 
@@ -202,7 +207,7 @@ export default function Financeiro() {
               <div>
                 <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Pior Dia</p>
                 <p className="font-display text-lg font-bold text-destructive">{piorDia ? `R$ ${vendasPorDia[piorDia].toLocaleString("pt-BR", {maximumFractionDigits: 0})}` : "—"}</p>
-                {piorDia && <p className="text-[9px] text-muted-foreground">{piorDia.split('-').reverse().join('/')}</p>}
+                {piorDia && <p className="text-[9px] text-muted-foreground">{piorDia.split('-').reverse().join('/')} • Com. R$ {(vendasPorDia[piorDia] * 0.08).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</p>}
               </div>
             </Card>
 
@@ -280,6 +285,12 @@ export default function Financeiro() {
                     className="h-12 text-lg bg-background/50 border-primary/30 focus:border-primary focus:ring-1 focus:ring-primary/50 font-bold text-primary"
                   />
                 </div>
+                {valorCaixa && Number(valorCaixa) > 0 && (
+                  <div className="flex justify-between items-center px-3 py-2 rounded-md bg-success/10 border border-success/30 text-xs">
+                    <span className="text-success/80 font-semibold uppercase tracking-wider">Comissão (8%)</span>
+                    <span className="font-display font-bold text-success">R$ {(Number(valorCaixa) * 0.08).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <Button type="submit" disabled={!valorCaixa || !dataCaixa} className="w-full h-11 bg-gradient-gold text-primary-foreground font-semibold hover:opacity-90 transition-opacity">
                   Adicionar ao Caixa
                 </Button>
@@ -316,7 +327,10 @@ export default function Financeiro() {
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-sm text-gradient-gold">R$ {venda.valor.toLocaleString("pt-BR")}</span>
+                        <div className="text-right">
+                          <p className="font-bold text-sm text-gradient-gold leading-tight">R$ {venda.valor.toLocaleString("pt-BR")}</p>
+                          <p className="text-[10px] text-success font-semibold leading-tight">+R$ {(venda.valor * 0.08).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} com.</p>
+                        </div>
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -331,6 +345,18 @@ export default function Financeiro() {
                 </div>
               )}
             </CardContent>
+            {vendasMesAtual.length > 0 && (
+              <div className="border-t border-border/50 px-4 py-3 shrink-0 bg-card-elevated/30 rounded-b-xl">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground uppercase font-semibold tracking-wider">Total Bruto</span>
+                  <span className="font-display font-bold text-gradient-gold">R$ {totalVendidoMes.toLocaleString("pt-BR")}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs mt-1">
+                  <span className="text-success/80 uppercase font-semibold tracking-wider">Sua Comissão (8%)</span>
+                  <span className="font-display font-bold text-success">R$ {(totalVendidoMes * 0.08).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>
