@@ -51,11 +51,10 @@ export default function PaginaEmbarques() {
 
   // ---- LOAD ----
   const carregar = async () => {
-    const hoje = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase
       .from("embarques_dia")
       .select("*")
-      .eq("data_operacao", hoje)
+      .order("data_operacao", { ascending: false })
       .order("hora_saida_prevista", { ascending: true });
     if (error) {
       toast({ title: "Erro ao carregar embarques", description: error.message, variant: "destructive" });
