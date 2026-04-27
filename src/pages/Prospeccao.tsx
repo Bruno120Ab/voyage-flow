@@ -67,7 +67,7 @@ export default function Prospeccao() {
     <div className="space-y-6 max-w-[1400px] mx-auto">
       <div>
         <p className="text-xs uppercase tracking-widest text-primary mb-1">Inteligência</p>
-        <h1 className="font-display text-3xl font-bold">Prospecção inteligente</h1>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold">Prospecção inteligente</h1>
         <p className="text-muted-foreground mt-1">Sugestões automáticas baseadas no histórico de cada cliente.</p>
       </div>
 

@@ -266,7 +266,7 @@ export default function Frota() {
         {(["operando", "agendado", "finalizado", "manutencao"] as VStatus[]).map((s) => (
           <Card key={s} className="glass-card p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">{statusLabel[s]}</p>
-            <p className="font-display text-3xl font-bold mt-1">{items.filter(i => i.status === s).length}</p>
+            <p className="font-display text-2xl sm:text-3xl font-bold mt-1">{items.filter(i => i.status === s).length}</p>
           </Card>
         ))}
       </div>

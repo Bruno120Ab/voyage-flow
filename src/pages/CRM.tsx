@@ -145,7 +145,7 @@ export default function CRM() {
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-primary mb-1">CRM</p>
-          <h1 className="font-display text-3xl font-bold">Inteligência de Vendas</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">Inteligência de Vendas</h1>
           <p className="text-muted-foreground mt-1">Visão completa de performance, funil e contatos do dia.</p>
         </div>
       </div>
@@ -168,7 +168,7 @@ export default function CRM() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Pipeline Total Ativo</p>
-                  <p className="font-display text-3xl font-bold">R$ {metrics.pipelineTotal.toLocaleString("pt-BR")}</p>
+                  <p className="font-display text-2xl sm:text-3xl font-bold">R$ {metrics.pipelineTotal.toLocaleString("pt-BR")}</p>
                 </div>
                 <div className="bg-primary/10 p-2 rounded-lg text-primary"><BarChart2 className="h-5 w-5" /></div>
               </div>
@@ -177,7 +177,7 @@ export default function CRM() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Receita Fechada (Mês)</p>
-                  <p className="font-display text-3xl font-bold text-success">R$ {metrics.receitaMensal.toLocaleString("pt-BR")}</p>
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-success">R$ {metrics.receitaMensal.toLocaleString("pt-BR")}</p>
                 </div>
                 <div className="bg-success/10 p-2 rounded-lg text-success"><TrendingUp className="h-5 w-5" /></div>
               </div>
@@ -186,7 +186,7 @@ export default function CRM() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Win Rate (Efetividade)</p>
-                  <p className="font-display text-3xl font-bold text-warning">{metrics.winRate}%</p>
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-warning">{metrics.winRate}%</p>
                 </div>
                 <div className="bg-warning/10 p-2 rounded-lg text-warning"><Target className="h-5 w-5" /></div>
               </div>

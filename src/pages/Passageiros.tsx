@@ -304,7 +304,7 @@ export default function Passageiros() {
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-primary mb-1">Central Comercial</p>
-          <h1 className="font-display text-3xl font-bold">Gestão de Clientes</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">Gestão de Clientes</h1>
           <p className="text-muted-foreground mt-1">Leads para fechar, retornos pendentes e base inativa — tudo em um lugar.</p>
         </div>
         <Dialog open={open} onOpenChange={(val) => {
@@ -442,7 +442,7 @@ function StatCard({ icon, label, value, accent, active, onClick, pipeline }: { i
         <span className={`${accentColorClass} flex items-center gap-1.5 text-xs uppercase tracking-wider font-semibold`}>{icon}{label}</span>
       </div>
       <div className="flex items-end justify-between">
-        <p className="font-display text-3xl font-bold">{value}</p>
+        <p className="font-display text-2xl sm:text-3xl font-bold">{value}</p>
         {pipeline !== undefined && pipeline > 0 && (
           <div className="text-right">
             <p className="text-[10px] uppercase font-semibold text-muted-foreground">Pipeline Ativo</p>
