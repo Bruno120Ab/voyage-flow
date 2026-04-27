@@ -285,6 +285,12 @@ export default function Financeiro() {
                     className="h-12 text-lg bg-background/50 border-primary/30 focus:border-primary focus:ring-1 focus:ring-primary/50 font-bold text-primary"
                   />
                 </div>
+                {valorCaixa && Number(valorCaixa) > 0 && (
+                  <div className="flex justify-between items-center px-3 py-2 rounded-md bg-success/10 border border-success/30 text-xs">
+                    <span className="text-success/80 font-semibold uppercase tracking-wider">Comissão (8%)</span>
+                    <span className="font-display font-bold text-success">R$ {(Number(valorCaixa) * 0.08).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <Button type="submit" disabled={!valorCaixa || !dataCaixa} className="w-full h-11 bg-gradient-gold text-primary-foreground font-semibold hover:opacity-90 transition-opacity">
                   Adicionar ao Caixa
                 </Button>
