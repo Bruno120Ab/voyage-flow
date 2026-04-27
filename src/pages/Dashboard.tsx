@@ -242,28 +242,6 @@ export default function Dashboard() {
             <p className="mt-2 font-display text-2xl font-bold">{stats.leadsAtivos}</p>
             <p className="text-xs text-muted-foreground mt-2">Oportunidades abertas</p>
           </Card>
-          <Card className={`glass-card p-5 hover:border-primary/40 transition-all border-l-4 ${stats.atrasadosFrota > 0 ? "border-l-destructive shadow-[0_0_15px_rgba(239,68,68,0.1)]" : "border-l-primary"} group`}>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">
-              Monitor Frotas <Bus className={`h-4 w-4 ${stats.atrasadosFrota > 0 ? "text-destructive animate-pulse" : "opacity-50"}`} />
-            </p>
-            {stats.atrasadosFrota > 0 ? (
-              <p className="mt-2 font-display text-2xl font-bold text-destructive truncate">{stats.atrasadosFrota} Atrasado{stats.atrasadosFrota > 1 ? 's' : ''}</p>
-            ) : stats.proxFrota ? (
-              <p className="mt-2 font-display text-2xl font-bold text-foreground truncate">{stats.proxFrota.hora_saida_prevista || stats.proxFrota.previsao_chegada}</p>
-            ) : (
-              <p className="mt-2 font-display text-2xl font-bold text-muted-foreground truncate">Livre</p>
-            )}
-            {stats.proxFrota && stats.atrasadosFrota === 0 && (
-              <p className="text-[11px] text-muted-foreground mt-2 truncate">Serviço #{stats.proxFrota.servico}</p>
-            )}
-            {stats.atrasadosFrota > 0 && stats.proxFrota && (
-              <p className="text-[11px] text-muted-foreground mt-2 truncate">Próximo às {stats.proxFrota.hora_saida_prevista}</p>
-            )}
-            {!stats.proxFrota && stats.atrasadosFrota === 0 && (
-              <p className="text-[11px] text-muted-foreground mt-2">Nenhum pendente</p>
-            )}
-          </Card>
-          
         </div>
       </div>
 
