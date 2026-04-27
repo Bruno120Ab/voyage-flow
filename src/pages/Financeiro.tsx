@@ -157,7 +157,11 @@ export default function Financeiro() {
                 )}
                 
                 <h2 className="font-display text-5xl font-bold text-gradient-gold mt-2">R$ {totalVendidoMes.toLocaleString("pt-BR")}</h2>
-                <p className="text-xs text-muted-foreground mt-2">Faturado no mês atual</p>
+                <p className="text-xs text-muted-foreground mt-2">Faturado bruto no mês atual</p>
+                <div className="mt-3 px-4 py-2 rounded-lg bg-success/10 border border-success/30">
+                  <p className="text-[10px] uppercase font-semibold text-success/80 tracking-wider">Sua Comissão (8%)</p>
+                  <p className="font-display text-2xl font-bold text-success">R$ {(totalVendidoMes * 0.08).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
               </div>
 
               {/* Progress Bar */}
