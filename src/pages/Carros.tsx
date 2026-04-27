@@ -305,36 +305,36 @@ export default function PaginaEmbarques() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
       <div className="flex items-end justify-between flex-wrap gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-widest text-primary mb-1">Operação</p>
-          <h1 className="font-display text-3xl font-bold">Monitor de Frotas</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">Monitor de Frotas</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Gestão inteligente das saídas diárias, status de carros e check-ins.
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <Button variant="outline" className="border-border hover:border-primary/40 hover:bg-primary/5 transition-all" onClick={resetarEmbarquesDoDia}>
+        <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+          <Button variant="outline" className="border-border hover:border-primary/40 hover:bg-primary/5 transition-all flex-1 sm:flex-none" onClick={resetarEmbarquesDoDia}>
             <RotateCcw className="w-4 h-4 mr-2" /> Reiniciar Dia
           </Button>
-          <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={abrirModalNovo}>
+          <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow flex-1 sm:flex-none" onClick={abrirModalNovo}>
             <Plus className="w-4 h-4 mr-2" /> Novo Serviço
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="glass-card p-5 border-t-4 border-t-primary">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="glass-card p-4 sm:p-5 border-t-4 border-t-primary">
           <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Total do Dia</p>
-          <h2 className="font-display text-3xl font-bold">{total}</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold">{total}</h2>
         </Card>
-        <Card className="glass-card p-5 border-t-4 border-t-success">
+        <Card className="glass-card p-4 sm:p-5 border-t-4 border-t-success">
           <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Check-in Concluído</p>
-          <h2 className="font-display text-3xl font-bold text-success">{concluidos}</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-success">{concluidos}</h2>
         </Card>
-        <Card className="glass-card p-5 border-t-4 border-t-warning">
+        <Card className="glass-card p-4 sm:p-5 border-t-4 border-t-warning">
           <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Aguardando Saída</p>
-          <h2 className="font-display text-3xl font-bold text-warning">{pendentes}</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-warning">{pendentes}</h2>
         </Card>
       </div>
 
