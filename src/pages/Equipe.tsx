@@ -65,7 +65,7 @@ export default function Equipe() {
     <div className="space-y-6 max-w-[1400px] mx-auto">
       <div>
         <p className="text-xs uppercase tracking-widest text-primary mb-1">Configurações</p>
-        <h1 className="font-display text-3xl font-bold">Equipe & permissões</h1>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold">Equipe & permissões</h1>
         <p className="text-muted-foreground mt-1">Aprove novos cadastros e defina o papel de cada membro.</p>
       </div>
 
@@ -73,7 +73,7 @@ export default function Equipe() {
         {(["pending", "ativo", "inativo"] as ProfileStatus[]).map(s => (
           <Card key={s} className="glass-card p-4">
             <p className="text-xs uppercase text-muted-foreground tracking-wide capitalize">{s === "pending" ? "Pendentes" : s}</p>
-            <p className="font-display text-3xl font-bold mt-1">{items.filter(i => i.status === s).length}</p>
+            <p className="font-display text-2xl sm:text-3xl font-bold mt-1">{items.filter(i => i.status === s).length}</p>
           </Card>
         ))}
       </div>

@@ -6,7 +6,7 @@ export default function Placeholder({ title, subtitle }: { title: string; subtit
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div>
         <p className="text-xs uppercase tracking-widest text-primary mb-1">Em breve</p>
-        <h1 className="font-display text-3xl font-bold">{title}</h1>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold">{title}</h1>
         <p className="text-muted-foreground mt-1">{subtitle}</p>
       </div>
       <Card className="glass-card p-12 flex flex-col items-center justify-center text-center min-h-[400px]">

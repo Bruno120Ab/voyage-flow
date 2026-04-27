@@ -119,7 +119,7 @@ export default function Financeiro() {
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-primary mb-1">Caixa & Metas</p>
-          <h1 className="font-display text-3xl font-bold flex items-center gap-2"><Wallet className="h-8 w-8 text-primary" /> Financeiro Diário</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold flex items-center gap-2"><Wallet className="h-8 w-8 text-primary" /> Financeiro Diário</h1>
           <p className="text-muted-foreground mt-1">Feche o caixa, lance retroativos e acompanhe os KPIs do mês.</p>
         </div>
       </div>

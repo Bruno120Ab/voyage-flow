@@ -305,36 +305,36 @@ export default function PaginaEmbarques() {
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
       <div className="flex items-end justify-between flex-wrap gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-widest text-primary mb-1">Operação</p>
-          <h1 className="font-display text-3xl font-bold">Monitor de Frotas</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">Monitor de Frotas</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Gestão inteligente das saídas diárias, status de carros e check-ins.
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <Button variant="outline" className="border-border hover:border-primary/40 hover:bg-primary/5 transition-all" onClick={resetarEmbarquesDoDia}>
+        <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+          <Button variant="outline" className="border-border hover:border-primary/40 hover:bg-primary/5 transition-all flex-1 sm:flex-none" onClick={resetarEmbarquesDoDia}>
             <RotateCcw className="w-4 h-4 mr-2" /> Reiniciar Dia
           </Button>
-          <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={abrirModalNovo}>
+          <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow flex-1 sm:flex-none" onClick={abrirModalNovo}>
             <Plus className="w-4 h-4 mr-2" /> Novo Serviço
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="glass-card p-5 border-t-4 border-t-primary">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="glass-card p-4 sm:p-5 border-t-4 border-t-primary">
           <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Total do Dia</p>
-          <h2 className="font-display text-3xl font-bold">{total}</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold">{total}</h2>
         </Card>
-        <Card className="glass-card p-5 border-t-4 border-t-success">
+        <Card className="glass-card p-4 sm:p-5 border-t-4 border-t-success">
           <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Check-in Concluído</p>
-          <h2 className="font-display text-3xl font-bold text-success">{concluidos}</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-success">{concluidos}</h2>
         </Card>
-        <Card className="glass-card p-5 border-t-4 border-t-warning">
+        <Card className="glass-card p-4 sm:p-5 border-t-4 border-t-warning">
           <p className="text-xs uppercase font-semibold text-muted-foreground mb-1">Aguardando Saída</p>
-          <h2 className="font-display text-3xl font-bold text-warning">{pendentes}</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-warning">{pendentes}</h2>
         </Card>
       </div>
 
@@ -348,18 +348,18 @@ export default function PaginaEmbarques() {
             onChange={(e) => setBusca(e.target.value)}
           />
         </div>
-        <div className="flex gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
-          <Button size="sm" variant={filtroStatus === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("todos")}>Todos</Button>
-          <Button size="sm" variant={filtroStatus === "pendentes" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("pendentes")}>Pendentes</Button>
-          <Button size="sm" variant={filtroStatus === "concluidos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("concluidos")}>Concluídos</Button>
-          <Button size="sm" variant={filtroStatus === "faltamHoje" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroStatus("faltamHoje")}>Faltam Hoje</Button>
+        <div className="flex flex-wrap gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
+          <Button size="sm" variant={filtroStatus === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("todos")}>Todos</Button>
+          <Button size="sm" variant={filtroStatus === "pendentes" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("pendentes")}>Pendentes</Button>
+          <Button size="sm" variant={filtroStatus === "concluidos" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("concluidos")}>Concluídos</Button>
+          <Button size="sm" variant={filtroStatus === "faltamHoje" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroStatus("faltamHoje")}>Faltam Hoje</Button>
         </div>
-        <div className="flex gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
-          <Button size="sm" variant={filtroSentido === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md" onClick={() => setFiltroSentido("todos")}>Todos sentidos</Button>
-          <Button size="sm" variant={filtroSentido === "descida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1" onClick={() => setFiltroSentido("descida")}>
+        <div className="flex flex-wrap gap-1 w-full md:w-auto p-1 bg-background/30 rounded-lg">
+          <Button size="sm" variant={filtroSentido === "todos" ? "secondary" : "ghost"} className="text-xs rounded-md flex-1 md:flex-none" onClick={() => setFiltroSentido("todos")}>Todos sentidos</Button>
+          <Button size="sm" variant={filtroSentido === "descida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1 flex-1 md:flex-none" onClick={() => setFiltroSentido("descida")}>
             <ArrowDownRight className="h-3 w-3 text-primary" /> Descendo
           </Button>
-          <Button size="sm" variant={filtroSentido === "subida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1" onClick={() => setFiltroSentido("subida")}>
+          <Button size="sm" variant={filtroSentido === "subida" ? "secondary" : "ghost"} className="text-xs rounded-md gap-1 flex-1 md:flex-none" onClick={() => setFiltroSentido("subida")}>
             <ArrowUpRight className="h-3 w-3 text-warning" /> Subindo
           </Button>
         </div>
@@ -460,18 +460,18 @@ export default function PaginaEmbarques() {
                         )}
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                         {item.passou ? (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => abrirModal(item)} className="h-8">Editar Check-in</Button>
-                            <Button size="sm" variant="secondary" onClick={() => copymsg(item)} className="h-8 gap-1.5"><Copy className="h-3 w-3" /> Relatório</Button>
-                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="outline" onClick={() => abrirModal(item)} className="h-8 flex-1 sm:flex-none">Editar Check-in</Button>
+                            <Button size="sm" variant="secondary" onClick={() => copymsg(item)} className="h-8 gap-1.5 flex-1 sm:flex-none"><Copy className="h-3 w-3" /> Relatório</Button>
+                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></Button>
                           </>
                         ) : (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => abrirModalEditar(item)} className="h-9">Editar Serviço</Button>
-                            <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95">Fazer Check-in</Button>
-                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-9 w-9 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="outline" onClick={() => abrirModalEditar(item)} className="h-9 flex-1 sm:flex-none">Editar Serviço</Button>
+                            <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95 flex-1 sm:flex-none">Fazer Check-in</Button>
+                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></Button>
                           </>
                         )}
                       </div>

@@ -55,7 +55,7 @@ export default function Agenda() {
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-primary mb-1">Agenda</p>
-          <h1 className="font-display text-3xl font-bold">Embarques</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold">Embarques</h1>
           <p className="text-muted-foreground mt-1">Calendário visual de todas as saídas planejadas.</p>
         </div>
         <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={() => window.location.href = "/embarques"}><Plus className="h-4 w-4 mr-2" />Novo embarque</Button>
