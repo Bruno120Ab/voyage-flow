@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Bus, Users, TrendingUp, AlertTriangle, Calendar, Star, CheckCircle2, ArrowUpRight, ArrowDownRight, Loader2, DollarSign, Wallet, Activity, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface DashboardStats {
   faturamentoMes: number;
@@ -36,7 +38,8 @@ interface DashboardStats {
 export default function Dashboard() {
   const { profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-
+const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
+  
   useEffect(() => {
     const load = async () => {
       const now = new Date().toISOString();
@@ -48,7 +51,8 @@ export default function Dashboard() {
         supabase.from("passageiros").select("id, ticket_medio, tag, ultima_viagem, total_viagens"),
         supabase.from("leads").select("id, valor_estimado, etapa"),
         supabase.from("veiculos").select("id, status"),
-        supabase.from("embarques_dia").select("*").eq("data_operacao", new Date().toISOString().slice(0, 10)),
+        supabase.from("embarques_dia").select("*")
+        // .eq("data_operacao", new Date().toISOString().slice(0, 10)),
       ]);
 
       // Financeiro
@@ -215,7 +219,7 @@ export default function Dashboard() {
 
       <div>
         <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><DollarSign className="h-5 w-5 text-primary" /> Visão Financeira e Geral</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-primary group">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Faturamento do Mês</p>
             <p className="mt-2 font-display text-2xl font-bold text-gradient-gold">R$ {stats.faturamentoMes.toLocaleString("pt-BR")}</p>
@@ -281,15 +285,173 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                {b.prox && (
+                {/* {b.prox && (
                   <p className="text-[11px] text-muted-foreground mt-3 truncate">
                     Serviço #{b.prox.servico} • {b.prox.rota || "rota"} • Carro {b.prox.carro}
                   </p>
                 )}
                 {b.lista.length === 0 && (
                   <p className="text-[11px] text-muted-foreground mt-3">Nenhum serviço neste sentido hoje.</p>
-                )}
+                )} */}
+                {/* BLOCO ATRASADO + PRÓXIMO */}
+{(() => {
+  const atrasadoItem = b.lista.find((e: any) => {
+    if (e.passou) return false;
+
+    const hora = e.hora_saida_prevista || e.previsao_chegada;
+    if (!hora) return false;
+
+    const horaFormatada = hora.slice(0, 5);
+    if (!horaFormatada.includes(":")) return false;
+
+    const [h, m] = horaFormatada.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return false;
+
+    const horaItem = h * 60 + m;
+    const agora = new Date();
+    const agoraMin = agora.getHours() * 60 + agora.getMinutes();
+
+    return horaItem < agoraMin;
+  });
+
+  return (
+    <>
+      {/* ATRASADO */}
+     
+
+      {/* PRÓXIMO */}
+   
+    {/* {expandirPrevisao === b.prox.id && (
+    <div className="mt-4 pt-4 border-t border-border/50">
+        
+    </div>
+    )} */}
+
+    {/* <Button
+      variant="ghost"
+      size="sm"
+      className="mt-3 h-8 px-2 text-xs"
+      onClick={() =>
+        setExpandirPrevisao(expandirPrevisao === b.prox.id ? null : b.prox.id)
+      }
+    >
+      {expandirPrevisao === b.prox.id
+        ? "Ocultar acompanhamento ▲"
+        : "Ver acompanhamento ▼"}
+    </Button> */}
+
+      {/* SEM SERVIÇOS */}
+      {b.lista.length === 0 && (
+        <div className="mt-4 rounded-xl border border-dashed border-border/50 bg-background/30 p-4 text-center">
+          <p className="text-sm font-medium text-muted-foreground">
+            Nenhum serviço neste sentido hoje
+          </p>
+
+          <p className="text-[11px] text-muted-foreground/70 mt-1">
+            Novos embarques aparecerão aqui automaticamente
+          </p>
+        </div>
+      )}
+    </>
+  );
+})()}
+
+    {/* BLOCO ATRASADO + PRÓXIMO LADO A LADO */}
+    {(() => {
+      const atrasadoItem = b.lista.find((e: any) => {
+        if (e.passou) return false;
+
+        const hora = e.hora_saida_prevista || e.previsao_chegada;
+        if (!hora) return false;
+
+        const horaFormatada = hora.slice(0, 5);
+        if (!horaFormatada.includes(":")) return false;
+
+        const [h, m] = horaFormatada.split(":").map(Number);
+        if (isNaN(h) || isNaN(m)) return false;
+
+        const horaItem = h * 60 + m;
+        const agora = new Date();
+        const agoraMin = agora.getHours() * 60 + agora.getMinutes();
+
+        return horaItem < agoraMin;
+      });
+
+      return (
+        <>
+          {(atrasadoItem || b.prox) && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              
+              {/* ATRASADO */}
+              {atrasadoItem && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-destructive font-semibold mb-2">
+                    Serviço Atrasado
+                  </p>
+
+                  <div className="space-y-2">
+                    <div className="px-2 py-1 rounded-md bg-destructive/10 text-destructive text-xs font-semibold border border-destructive/20 inline-block">
+                      Serviço #{atrasadoItem.servico || "---"}
+                    </div>
+
+                    <div className="px-2 py-1 rounded-md bg-background/60 text-xs text-foreground border border-border/50">
+                      📍 {atrasadoItem.rota || "Rota não definida"}
+                    </div>
+
+                    <div className="px-2 py-1 rounded-md bg-background/60 text-xs text-destructive border border-destructive/20 font-medium">
+                      ⏰ {atrasadoItem.hora_saida_prevista || atrasadoItem.previsao_chegada || "--:--"}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PRÓXIMO */}
+              {b.prox && (
+                <div className="rounded-xl border border-border/50 bg-card-elevated/40 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+                    Próximo Serviço
+                  </p>
+
+                  <div className="space-y-2">
+                    <div className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold border border-primary/20 inline-block">
+                      Serviço #{b.prox.servico || "---"}
+                    </div>
+
+                    <div className="px-2 py-1 rounded-md bg-background/60 text-xs text-foreground border border-border/50">
+                      📍 {b.prox.rota || "Rota não definida"}
+                    </div>
+
+                    <div className="px-2 py-1 rounded-md bg-secondary text-xs font-medium border border-border">
+                      ⏰ {b.prox.hora_saida_prevista || b.prox.previsao_chegada || "--:--"}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              
+            </div>
+          )}
+
+          {/* SEM SERVIÇOS */}
+          {b.lista.length === 0 && (
+            <div className="mt-4 rounded-xl border border-dashed border-border/50 bg-background/30 p-4 text-center">
+              <p className="text-sm font-medium text-muted-foreground">
+                Nenhum serviço neste sentido hoje
+              </p>
+
+              <p className="text-[11px] text-muted-foreground/70 mt-1">
+                Novos embarques aparecerão aqui automaticamente
+              </p>
+            </div>
+          )}
+
+          
+        </>
+      );
+    })()}
               </Card>
+
+              
             );
           })}
         </div>
@@ -308,6 +470,8 @@ export default function Dashboard() {
                 {stats.veiculosManutencao > 0 && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">{stats.veiculosManutencao} Manutenção</Badge>}
               </div>
             </div>
+
+            
             
             {stats.proximos.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-sm">

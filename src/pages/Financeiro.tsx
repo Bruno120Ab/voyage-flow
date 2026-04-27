@@ -98,6 +98,22 @@ export default function Financeiro() {
   const totalVendidoMes = vendasMesAtual.reduce((acc, v) => acc + v.valor, 0);
   const progresso = Math.min((totalVendidoMes / (metaMes || 1)) * 100, 100);
 
+//   const hoje = new Date();
+// const mesAtual = hoje.getMonth();
+// const anoAtual = hoje.getFullYear();
+
+const ultimoDiaMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
+const diaAtual = hoje.getDate();
+
+const diasRestantes = Math.max(ultimoDiaMes - diaAtual + 1, 1);
+
+const faltaMeta = Math.max(metaMes - totalVendidoMes, 0);
+
+const metaPorDiaNecessaria =
+  faltaMeta > 0 ? faltaMeta / diasRestantes : 0;
+
+const comissaoDiariaNecessaria =
+  metaPorDiaNecessaria * 0.08;
   // KPIs por Dia
   const vendasPorDia = vendasMesAtual.reduce((acc, v) => {
     const dia = v.data.length > 10 ? v.data.slice(0, 10) : v.data;
@@ -128,6 +144,7 @@ export default function Financeiro() {
         
         {/* COLUNA 1: METAS E KPIs */}
         <div className="lg:col-span-2 space-y-6">
+   
           <Card className="glass-card overflow-hidden border-t-4 border-t-primary">
             <CardHeader className="bg-primary/5 border-b border-border/50 pb-4">
               <div className="flex justify-between items-center">
@@ -182,6 +199,34 @@ export default function Financeiro() {
             </CardContent>
           </Card>
 
+          <Card className="glass-card border-t-2 border-t-primary p-4 flex flex-col items-center text-center justify-center gap-2 hover:border-primary/40 transition-colors">
+          <div className="bg-primary/10 p-2 rounded-full">
+          <Target className="h-4 w-4 text-primary" />
+          </div>
+
+          <div>
+          <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">
+          Meta por Dia
+          </p>
+
+          <p className="font-display text-lg font-bold text-primary">
+          R$ {metaPorDiaNecessaria.toLocaleString("pt-BR", {
+            maximumFractionDigits: 0,
+          })}
+          </p>
+
+          <p className="text-[9px] text-muted-foreground">
+          Faltam {diasRestantes} dias
+          </p>
+
+          <p className="text-[9px] text-success font-semibold">
+          Comissão/dia: R${" "}
+          {comissaoDiariaNecessaria.toLocaleString("pt-BR", {
+            maximumFractionDigits: 2,
+          })}
+          </p>
+          </div>
+          </Card> 
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="glass-card border-t-2 border-t-info p-4 flex flex-col items-center text-center justify-center gap-2 hover:border-info/40 transition-colors">

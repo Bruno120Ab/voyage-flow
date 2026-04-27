@@ -535,13 +535,57 @@ export default function PaginaEmbarques() {
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+              {/* <div className="space-y-1.5">
                 <Label>Hora real do check-in</Label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input className="pl-9 bg-background/50" placeholder="HH:mm" value={form.horaReal} onChange={(e) => setForm({ ...form, horaReal: e.target.value })} />
                 </div>
-              </div>
+              </div> */}
+              <div className="space-y-1.5">
+  <Label>Hora real do check-in</Label>
+
+  <div className="flex gap-2">
+    <div className="relative flex-1">
+      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+      <Input
+        className="pl-9 bg-background/50"
+        placeholder="HH:mm"
+        value={form.horaReal}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            horaReal: e.target.value,
+          })
+        }
+      />
+    </div>
+
+<Button
+  type="button"
+  variant="outline"
+  className="flex items-center gap-2"
+  onClick={() => {
+    const agora = new Date();
+
+    const horaAtual = agora.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    setForm({
+      ...form,
+      horaReal: horaAtual,
+    });
+  }}
+>
+  <Clock className="h-4 w-4" />
+  
+</Button>
+  </div>
+</div>
               <div className="space-y-1.5">
                 <Label>Veículo Escalado (Frota)</Label>
                 <Select value={form.carro || "--"} onValueChange={(v) => setForm({ ...form, carro: v })}>
