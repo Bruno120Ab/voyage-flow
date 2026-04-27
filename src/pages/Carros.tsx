@@ -460,18 +460,18 @@ export default function PaginaEmbarques() {
                         )}
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                         {item.passou ? (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => abrirModal(item)} className="h-8">Editar Check-in</Button>
-                            <Button size="sm" variant="secondary" onClick={() => copymsg(item)} className="h-8 gap-1.5"><Copy className="h-3 w-3" /> Relatório</Button>
-                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="outline" onClick={() => abrirModal(item)} className="h-8 flex-1 sm:flex-none">Editar Check-in</Button>
+                            <Button size="sm" variant="secondary" onClick={() => copymsg(item)} className="h-8 gap-1.5 flex-1 sm:flex-none"><Copy className="h-3 w-3" /> Relatório</Button>
+                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></Button>
                           </>
                         ) : (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => abrirModalEditar(item)} className="h-9">Editar Serviço</Button>
-                            <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95">Fazer Check-in</Button>
-                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-9 w-9 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <Button size="sm" variant="outline" onClick={() => abrirModalEditar(item)} className="h-9 flex-1 sm:flex-none">Editar Serviço</Button>
+                            <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95 flex-1 sm:flex-none">Fazer Check-in</Button>
+                            <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></Button>
                           </>
                         )}
                       </div>
