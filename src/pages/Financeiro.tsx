@@ -189,6 +189,7 @@ export default function Financeiro() {
               <div>
                 <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Média Diária</p>
                 <p className="font-display text-lg font-bold">R$ {mediaDiaria.toLocaleString("pt-BR", {maximumFractionDigits: 0})}</p>
+                <p className="text-[9px] text-success font-semibold">Com.: R$ {(mediaDiaria * 0.08).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</p>
               </div>
             </Card>
             
@@ -197,7 +198,7 @@ export default function Financeiro() {
               <div>
                 <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Melhor Dia</p>
                 <p className="font-display text-lg font-bold text-success">{melhorDia ? `R$ ${vendasPorDia[melhorDia].toLocaleString("pt-BR", {maximumFractionDigits: 0})}` : "—"}</p>
-                {melhorDia && <p className="text-[9px] text-muted-foreground">{melhorDia.split('-').reverse().join('/')}</p>}
+                {melhorDia && <p className="text-[9px] text-muted-foreground">{melhorDia.split('-').reverse().join('/')} • Com. R$ {(vendasPorDia[melhorDia] * 0.08).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</p>}
               </div>
             </Card>
 
@@ -206,7 +207,7 @@ export default function Financeiro() {
               <div>
                 <p className="text-[10px] uppercase font-semibold text-muted-foreground mb-0.5">Pior Dia</p>
                 <p className="font-display text-lg font-bold text-destructive">{piorDia ? `R$ ${vendasPorDia[piorDia].toLocaleString("pt-BR", {maximumFractionDigits: 0})}` : "—"}</p>
-                {piorDia && <p className="text-[9px] text-muted-foreground">{piorDia.split('-').reverse().join('/')}</p>}
+                {piorDia && <p className="text-[9px] text-muted-foreground">{piorDia.split('-').reverse().join('/')} • Com. R$ {(vendasPorDia[piorDia] * 0.08).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</p>}
               </div>
             </Card>
 
