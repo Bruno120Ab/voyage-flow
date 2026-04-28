@@ -2,16 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus } from "lucide-react";
+import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus, Plus, Trash2, ListChecks, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type Etapa = Database["public"]["Enums"]["lead_etapa"];
 type EmbarqueDia = Database["public"]["Tables"]["embarques_dia"]["Row"];
+type Tarefa = Database["public"]["Tables"]["tarefas"]["Row"];
+
+const prioridadeStyle: Record<string, string> = {
+  baixa: "bg-muted text-muted-foreground border-border",
+  normal: "bg-primary/15 text-primary border-primary/30",
+  alta: "bg-warning/15 text-warning border-warning/30",
+  urgente: "bg-destructive/15 text-destructive border-destructive/30",
+};
 
 const columns: { key: Etapa; title: string; color: string; hex: string }[] = [
   { key: "novo", title: "Novo lead", color: "border-t-accent text-accent", hex: "#3b82f6" },
@@ -25,41 +40,49 @@ const columns: { key: Etapa; title: string; color: string; hex: string }[] = [
 export default function CRM() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [embarques, setEmbarques] = useState<EmbarqueDia[]>([]);
+  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("cockpit");
+
+  // Task dialog state
+  const [taskDialog, setTaskDialog] = useState(false);
+  const [titulo, setTitulo] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [dataTarefa, setDataTarefa] = useState(new Date().toISOString().slice(0, 10));
+  const [hora, setHora] = useState("");
+  const [prioridade, setPrioridade] = useState<"baixa" | "normal" | "alta" | "urgente">("normal");
+  const [filtroTarefas, setFiltroTarefas] = useState<"hoje" | "todas" | "concluidas">("hoje");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const loadLeads = async () => {
       const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
       setLeads((data ?? []) as Lead[]);
     };
-    
     const loadEmbarques = async () => {
       const hoje = new Date().toISOString().slice(0, 10);
       const { data } = await supabase.from("embarques_dia").select("*").eq("data_operacao", hoje);
       setEmbarques((data ?? []) as EmbarqueDia[]);
     };
+    const loadTarefas = async () => {
+      const { data } = await supabase.from("tarefas").select("*").order("data", { ascending: true });
+      setTarefas((data ?? []) as Tarefa[]);
+    };
 
     const init = async () => {
-      await Promise.all([loadLeads(), loadEmbarques()]);
+      await Promise.all([loadLeads(), loadEmbarques(), loadTarefas()]);
       setLoading(false);
     };
     init();
 
-    const channelLeads = supabase
-      .channel("crm-leads")
+    const channel = supabase
+      .channel("crm-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, loadLeads)
-      .subscribe();
-      
-    const channelEmbarques = supabase
-      .channel("crm-embarques")
       .on("postgres_changes", { event: "*", schema: "public", table: "embarques_dia" }, loadEmbarques)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tarefas" }, loadTarefas)
       .subscribe();
 
-    return () => { 
-      supabase.removeChannel(channelLeads); 
-      supabase.removeChannel(channelEmbarques); 
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const openWhats = (tel: string | null) => {
@@ -67,6 +90,56 @@ export default function CRM() {
     const num = tel.replace(/\D/g, "");
     window.open(`https://wa.me/55${num}`, "_blank");
   };
+
+  const openTaskDialog = () => {
+    setTitulo(""); setDescricao(""); setHora(""); setPrioridade("normal");
+    setDataTarefa(new Date().toISOString().slice(0, 10));
+    setTaskDialog(true);
+  };
+
+  const salvarTarefa = async () => {
+    if (!titulo.trim()) { toast.error("Informe o título da tarefa"); return; }
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("tarefas").insert({
+      titulo: titulo.trim(),
+      descricao: descricao.trim() || null,
+      data: dataTarefa,
+      hora: hora || null,
+      prioridade,
+      status: "pendente",
+      created_by: user?.id,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Tarefa criada");
+    setTaskDialog(false);
+  };
+
+  const toggleTarefa = async (t: Tarefa) => {
+    const novoStatus = t.status === "concluida" ? "pendente" : "concluida";
+    const { error } = await supabase.from("tarefas").update({
+      status: novoStatus,
+      concluida_em: novoStatus === "concluida" ? new Date().toISOString() : null,
+    }).eq("id", t.id);
+    if (error) toast.error(error.message);
+  };
+
+  const apagarTarefa = async (id: string) => {
+    const { error } = await supabase.from("tarefas").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else toast.success("Tarefa removida");
+  };
+
+  const tarefasFiltradas = useMemo(() => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    let list = tarefas;
+    if (filtroTarefas === "hoje") list = tarefas.filter(t => t.data === hoje && t.status !== "concluida" && t.status !== "cancelada");
+    else if (filtroTarefas === "concluidas") list = tarefas.filter(t => t.status === "concluida");
+    return list.sort((a, b) => (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || "")));
+  }, [tarefas, filtroTarefas]);
+
+  const tarefasPendentesHoje = tarefas.filter(t => t.data === new Date().toISOString().slice(0,10) && t.status !== "concluida" && t.status !== "cancelada").length;
 
   const metrics = useMemo(() => {
     const ativos = leads.filter(l => l.etapa !== "fechado" && l.etapa !== "perdido" && l.etapa !== "pos_venda");
@@ -156,7 +229,7 @@ export default function CRM() {
           <TabsTrigger value="funil"><KanbanSquare className="h-3.5 w-3.5 mr-1.5" /> Funil (Kanban)</TabsTrigger>
           <TabsTrigger value="agenda" className="relative">
             <CalendarClock className="h-3.5 w-3.5 mr-1.5" /> Agenda do Dia
-            {metrics.agenda.length > 0 && (
+            {(metrics.agenda.length > 0 || tarefasPendentesHoje > 0) && (
               <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive shadow-glow"></span>
             )}
           </TabsTrigger>
@@ -329,52 +402,162 @@ export default function CRM() {
           </div>
         </TabsContent>
 
-        <TabsContent value="agenda">
-          <Card className="glass-card border-t-4 border-t-destructive">
-            <CardHeader>
-              <CardTitle className="font-display flex items-center gap-2 text-destructive"><AlertCircle className="h-5 w-5" /> Tarefas Críticas (Atrasados e Hoje)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {metrics.agenda.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <CheckCircle2 className="h-12 w-12 text-success/50 mb-3" />
-                  <p className="font-medium text-lg text-foreground">Sua agenda está limpa!</p>
-                  <p className="text-sm">Nenhum follow-up pendente para hoje.</p>
+        <TabsContent value="agenda" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* TAREFAS DO DIA */}
+            <Card className="glass-card border-t-4 border-t-primary">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="font-display flex items-center gap-2">
+                  <ListChecks className="h-5 w-5 text-primary" /> Minhas Tarefas
+                </CardTitle>
+                <Button size="sm" onClick={openTaskDialog} className="bg-gradient-gold text-primary-foreground hover:opacity-90">
+                  <Plus className="h-4 w-4 mr-1.5" /> Nova
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-1">
+                  {(["hoje", "todas", "concluidas"] as const).map(f => (
+                    <button key={f} onClick={() => setFiltroTarefas(f)} className={`text-[11px] uppercase tracking-wider px-3 py-1.5 rounded border transition ${filtroTarefas === f ? "bg-primary/20 border-primary text-primary" : "border-border text-muted-foreground hover:border-border"}`}>
+                      {f === "hoje" ? "Hoje" : f === "todas" ? "Todas" : "Feitas"}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {metrics.agenda.map((op) => (
-                    <div key={op.id} className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-destructive/20 p-2 rounded-lg mt-0.5"><CalendarClock className="h-5 w-5 text-destructive" /></div>
-                        <div>
-                          <p className="font-semibold text-base">{op.nome}</p>
-                          <div className="flex gap-2 items-center text-xs text-muted-foreground mt-1">
-                            <span className="capitalize px-1.5 py-0.5 bg-background/50 rounded border border-border/50">{op.etapa.replace('_', ' ')}</span>
-                            {op.destino && <span>• {op.destino}</span>}
-                            <span className="font-semibold text-destructive">• {format(parseISO(op.follow_up_em!), "dd/MM 'às' HH:mm")}</span>
+
+                <div className="space-y-2 max-h-[480px] overflow-y-auto scrollbar-thin pr-1">
+                  {tarefasFiltradas.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                      <CheckCircle2 className="h-10 w-10 text-success/50 mb-2" />
+                      <p className="text-sm">Nenhuma tarefa por aqui.</p>
+                    </div>
+                  )}
+                  {tarefasFiltradas.map((t) => (
+                    <div key={t.id} className={`p-3 rounded-lg bg-card-elevated/60 border border-border/40 hover:border-primary/40 transition-all group ${t.status === "concluida" ? "opacity-60" : ""}`}>
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          checked={t.status === "concluida"}
+                          onCheckedChange={() => toggleTarefa(t)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${t.status === "concluida" ? "line-through" : ""}`}>{t.titulo}</p>
+                          {t.descricao && <p className="text-[11px] text-muted-foreground mt-0.5">{t.descricao}</p>}
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <CalendarClock className="h-2.5 w-2.5" />
+                              {format(parseISO(t.data + "T00:00:00"), "dd/MM")}
+                            </span>
+                            {t.hora && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{t.hora}</span>}
+                            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${prioridadeStyle[t.prioridade]}`}>{t.prioridade}</Badge>
+                            {t.status === "concluida" && t.concluida_em && (
+                              <span className="text-[10px] text-success">✓ {format(parseISO(t.concluida_em), "dd/MM HH:mm")}</span>
+                            )}
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 sm:ml-auto">
-                        <div className="text-right mr-3 hidden sm:block">
-                          <p className="text-[10px] uppercase text-muted-foreground font-semibold">Valor</p>
-                          <p className="font-bold text-sm">R$ {Number(op.valor_estimado).toLocaleString("pt-BR")}</p>
-                        </div>
-                        <Button variant="outline" className="border-border hover:bg-success/10 hover:text-success hover:border-success/30" onClick={() => openWhats(op.whatsapp || op.telefone)}>
-                          <MessageCircle className="h-4 w-4 mr-2" /> Falar
-                        </Button>
+                        <button onClick={() => apagarTarefa(t.id)} className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* FOLLOW-UPS CRÍTICOS */}
+            <Card className="glass-card border-t-4 border-t-destructive">
+              <CardHeader>
+                <CardTitle className="font-display flex items-center gap-2 text-destructive">
+                  <AlertCircle className="h-5 w-5" /> Follow-ups Críticos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {metrics.agenda.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <CheckCircle2 className="h-12 w-12 text-success/50 mb-3" />
+                    <p className="font-medium text-lg text-foreground">Tudo em dia!</p>
+                    <p className="text-sm">Nenhum follow-up pendente.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[480px] overflow-y-auto scrollbar-thin pr-1">
+                    {metrics.agenda.map((op) => (
+                      <div key={op.id} className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="bg-destructive/20 p-2 rounded-lg mt-0.5"><CalendarClock className="h-5 w-5 text-destructive" /></div>
+                          <div>
+                            <p className="font-semibold text-base">{op.nome}</p>
+                            <div className="flex gap-2 items-center text-xs text-muted-foreground mt-1 flex-wrap">
+                              <span className="capitalize px-1.5 py-0.5 bg-background/50 rounded border border-border/50">{op.etapa.replace('_', ' ')}</span>
+                              {op.destino && <span>• {op.destino}</span>}
+                              <span className="font-semibold text-destructive">• {format(parseISO(op.follow_up_em!), "dd/MM 'às' HH:mm")}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 sm:ml-auto">
+                          <div className="text-right mr-3 hidden sm:block">
+                            <p className="text-[10px] uppercase text-muted-foreground font-semibold">Valor</p>
+                            <p className="font-bold text-sm">R$ {Number(op.valor_estimado).toLocaleString("pt-BR")}</p>
+                          </div>
+                          <Button variant="outline" className="border-border hover:bg-success/10 hover:text-success hover:border-success/30" onClick={() => openWhats(op.whatsapp || op.telefone)}>
+                            <MessageCircle className="h-4 w-4 mr-2" /> Falar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
       </Tabs>
+
+      {/* Dialog Nova Tarefa */}
+      <Dialog open={taskDialog} onOpenChange={setTaskDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Título</Label>
+              <Input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex: Confirmar lista de passageiros" />
+            </div>
+            <div>
+              <Label className="text-xs">Descrição (opcional)</Label>
+              <Textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2} placeholder="Detalhes da tarefa..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Data</Label>
+                <Input type="date" value={dataTarefa} onChange={e => setDataTarefa(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Hora (opcional)</Label>
+                <Input type="time" value={hora} onChange={e => setHora(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Prioridade</Label>
+              <Select value={prioridade} onValueChange={(v: any) => setPrioridade(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="baixa">Baixa</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="alta">Alta</SelectItem>
+                  <SelectItem value="urgente">Urgente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTaskDialog(false)}>Cancelar</Button>
+            <Button onClick={salvarTarefa} disabled={saving} className="bg-gradient-gold text-primary-foreground">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar tarefa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
