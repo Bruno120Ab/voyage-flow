@@ -2,16 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus } from "lucide-react";
+import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus, Plus, Trash2, ListChecks, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type Etapa = Database["public"]["Enums"]["lead_etapa"];
 type EmbarqueDia = Database["public"]["Tables"]["embarques_dia"]["Row"];
+type Tarefa = Database["public"]["Tables"]["tarefas"]["Row"];
+
+const prioridadeStyle: Record<string, string> = {
+  baixa: "bg-muted text-muted-foreground border-border",
+  normal: "bg-primary/15 text-primary border-primary/30",
+  alta: "bg-warning/15 text-warning border-warning/30",
+  urgente: "bg-destructive/15 text-destructive border-destructive/30",
+};
 
 const columns: { key: Etapa; title: string; color: string; hex: string }[] = [
   { key: "novo", title: "Novo lead", color: "border-t-accent text-accent", hex: "#3b82f6" },
