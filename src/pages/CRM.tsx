@@ -402,52 +402,162 @@ export default function CRM() {
           </div>
         </TabsContent>
 
-        <TabsContent value="agenda">
-          <Card className="glass-card border-t-4 border-t-destructive">
-            <CardHeader>
-              <CardTitle className="font-display flex items-center gap-2 text-destructive"><AlertCircle className="h-5 w-5" /> Tarefas Críticas (Atrasados e Hoje)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {metrics.agenda.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <CheckCircle2 className="h-12 w-12 text-success/50 mb-3" />
-                  <p className="font-medium text-lg text-foreground">Sua agenda está limpa!</p>
-                  <p className="text-sm">Nenhum follow-up pendente para hoje.</p>
+        <TabsContent value="agenda" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* TAREFAS DO DIA */}
+            <Card className="glass-card border-t-4 border-t-primary">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="font-display flex items-center gap-2">
+                  <ListChecks className="h-5 w-5 text-primary" /> Minhas Tarefas
+                </CardTitle>
+                <Button size="sm" onClick={openTaskDialog} className="bg-gradient-gold text-primary-foreground hover:opacity-90">
+                  <Plus className="h-4 w-4 mr-1.5" /> Nova
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-1">
+                  {(["hoje", "todas", "concluidas"] as const).map(f => (
+                    <button key={f} onClick={() => setFiltroTarefas(f)} className={`text-[11px] uppercase tracking-wider px-3 py-1.5 rounded border transition ${filtroTarefas === f ? "bg-primary/20 border-primary text-primary" : "border-border text-muted-foreground hover:border-border"}`}>
+                      {f === "hoje" ? "Hoje" : f === "todas" ? "Todas" : "Feitas"}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {metrics.agenda.map((op) => (
-                    <div key={op.id} className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-destructive/20 p-2 rounded-lg mt-0.5"><CalendarClock className="h-5 w-5 text-destructive" /></div>
-                        <div>
-                          <p className="font-semibold text-base">{op.nome}</p>
-                          <div className="flex gap-2 items-center text-xs text-muted-foreground mt-1">
-                            <span className="capitalize px-1.5 py-0.5 bg-background/50 rounded border border-border/50">{op.etapa.replace('_', ' ')}</span>
-                            {op.destino && <span>• {op.destino}</span>}
-                            <span className="font-semibold text-destructive">• {format(parseISO(op.follow_up_em!), "dd/MM 'às' HH:mm")}</span>
+
+                <div className="space-y-2 max-h-[480px] overflow-y-auto scrollbar-thin pr-1">
+                  {tarefasFiltradas.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                      <CheckCircle2 className="h-10 w-10 text-success/50 mb-2" />
+                      <p className="text-sm">Nenhuma tarefa por aqui.</p>
+                    </div>
+                  )}
+                  {tarefasFiltradas.map((t) => (
+                    <div key={t.id} className={`p-3 rounded-lg bg-card-elevated/60 border border-border/40 hover:border-primary/40 transition-all group ${t.status === "concluida" ? "opacity-60" : ""}`}>
+                      <div className="flex items-start gap-2">
+                        <Checkbox
+                          checked={t.status === "concluida"}
+                          onCheckedChange={() => toggleTarefa(t)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${t.status === "concluida" ? "line-through" : ""}`}>{t.titulo}</p>
+                          {t.descricao && <p className="text-[11px] text-muted-foreground mt-0.5">{t.descricao}</p>}
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <CalendarClock className="h-2.5 w-2.5" />
+                              {format(parseISO(t.data + "T00:00:00"), "dd/MM")}
+                            </span>
+                            {t.hora && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{t.hora}</span>}
+                            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${prioridadeStyle[t.prioridade]}`}>{t.prioridade}</Badge>
+                            {t.status === "concluida" && t.concluida_em && (
+                              <span className="text-[10px] text-success">✓ {format(parseISO(t.concluida_em), "dd/MM HH:mm")}</span>
+                            )}
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 sm:ml-auto">
-                        <div className="text-right mr-3 hidden sm:block">
-                          <p className="text-[10px] uppercase text-muted-foreground font-semibold">Valor</p>
-                          <p className="font-bold text-sm">R$ {Number(op.valor_estimado).toLocaleString("pt-BR")}</p>
-                        </div>
-                        <Button variant="outline" className="border-border hover:bg-success/10 hover:text-success hover:border-success/30" onClick={() => openWhats(op.whatsapp || op.telefone)}>
-                          <MessageCircle className="h-4 w-4 mr-2" /> Falar
-                        </Button>
+                        <button onClick={() => apagarTarefa(t.id)} className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* FOLLOW-UPS CRÍTICOS */}
+            <Card className="glass-card border-t-4 border-t-destructive">
+              <CardHeader>
+                <CardTitle className="font-display flex items-center gap-2 text-destructive">
+                  <AlertCircle className="h-5 w-5" /> Follow-ups Críticos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {metrics.agenda.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <CheckCircle2 className="h-12 w-12 text-success/50 mb-3" />
+                    <p className="font-medium text-lg text-foreground">Tudo em dia!</p>
+                    <p className="text-sm">Nenhum follow-up pendente.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[480px] overflow-y-auto scrollbar-thin pr-1">
+                    {metrics.agenda.map((op) => (
+                      <div key={op.id} className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="bg-destructive/20 p-2 rounded-lg mt-0.5"><CalendarClock className="h-5 w-5 text-destructive" /></div>
+                          <div>
+                            <p className="font-semibold text-base">{op.nome}</p>
+                            <div className="flex gap-2 items-center text-xs text-muted-foreground mt-1 flex-wrap">
+                              <span className="capitalize px-1.5 py-0.5 bg-background/50 rounded border border-border/50">{op.etapa.replace('_', ' ')}</span>
+                              {op.destino && <span>• {op.destino}</span>}
+                              <span className="font-semibold text-destructive">• {format(parseISO(op.follow_up_em!), "dd/MM 'às' HH:mm")}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 sm:ml-auto">
+                          <div className="text-right mr-3 hidden sm:block">
+                            <p className="text-[10px] uppercase text-muted-foreground font-semibold">Valor</p>
+                            <p className="font-bold text-sm">R$ {Number(op.valor_estimado).toLocaleString("pt-BR")}</p>
+                          </div>
+                          <Button variant="outline" className="border-border hover:bg-success/10 hover:text-success hover:border-success/30" onClick={() => openWhats(op.whatsapp || op.telefone)}>
+                            <MessageCircle className="h-4 w-4 mr-2" /> Falar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
       </Tabs>
+
+      {/* Dialog Nova Tarefa */}
+      <Dialog open={taskDialog} onOpenChange={setTaskDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Título</Label>
+              <Input value={titulo} onChange={e => setTitulo(e.target.value)} placeholder="Ex: Confirmar lista de passageiros" />
+            </div>
+            <div>
+              <Label className="text-xs">Descrição (opcional)</Label>
+              <Textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2} placeholder="Detalhes da tarefa..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Data</Label>
+                <Input type="date" value={dataTarefa} onChange={e => setDataTarefa(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Hora (opcional)</Label>
+                <Input type="time" value={hora} onChange={e => setHora(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Prioridade</Label>
+              <Select value={prioridade} onValueChange={(v: any) => setPrioridade(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="baixa">Baixa</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="alta">Alta</SelectItem>
+                  <SelectItem value="urgente">Urgente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setTaskDialog(false)}>Cancelar</Button>
+            <Button onClick={salvarTarefa} disabled={saving} className="bg-gradient-gold text-primary-foreground">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar tarefa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
