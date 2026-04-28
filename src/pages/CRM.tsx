@@ -91,6 +91,56 @@ export default function CRM() {
     window.open(`https://wa.me/55${num}`, "_blank");
   };
 
+  const openTaskDialog = () => {
+    setTitulo(""); setDescricao(""); setHora(""); setPrioridade("normal");
+    setDataTarefa(new Date().toISOString().slice(0, 10));
+    setTaskDialog(true);
+  };
+
+  const salvarTarefa = async () => {
+    if (!titulo.trim()) { toast.error("Informe o título da tarefa"); return; }
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("tarefas").insert({
+      titulo: titulo.trim(),
+      descricao: descricao.trim() || null,
+      data: dataTarefa,
+      hora: hora || null,
+      prioridade,
+      status: "pendente",
+      created_by: user?.id,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Tarefa criada");
+    setTaskDialog(false);
+  };
+
+  const toggleTarefa = async (t: Tarefa) => {
+    const novoStatus = t.status === "concluida" ? "pendente" : "concluida";
+    const { error } = await supabase.from("tarefas").update({
+      status: novoStatus,
+      concluida_em: novoStatus === "concluida" ? new Date().toISOString() : null,
+    }).eq("id", t.id);
+    if (error) toast.error(error.message);
+  };
+
+  const apagarTarefa = async (id: string) => {
+    const { error } = await supabase.from("tarefas").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else toast.success("Tarefa removida");
+  };
+
+  const tarefasFiltradas = useMemo(() => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    let list = tarefas;
+    if (filtroTarefas === "hoje") list = tarefas.filter(t => t.data === hoje && t.status !== "concluida" && t.status !== "cancelada");
+    else if (filtroTarefas === "concluidas") list = tarefas.filter(t => t.status === "concluida");
+    return list.sort((a, b) => (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || "")));
+  }, [tarefas, filtroTarefas]);
+
+  const tarefasPendentesHoje = tarefas.filter(t => t.data === new Date().toISOString().slice(0,10) && t.status !== "concluida" && t.status !== "cancelada").length;
+
   const metrics = useMemo(() => {
     const ativos = leads.filter(l => l.etapa !== "fechado" && l.etapa !== "perdido" && l.etapa !== "pos_venda");
     const pipelineTotal = ativos.reduce((acc, l) => acc + Number(l.valor_estimado || 0), 0);
