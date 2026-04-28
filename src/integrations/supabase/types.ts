@@ -531,6 +531,48 @@ export type Database = {
         }
         Relationships: []
       }
+      tarefas: {
+        Row: {
+          concluida_em: string | null
+          created_at: string
+          created_by: string | null
+          data: string
+          descricao: string | null
+          hora: string | null
+          id: string
+          prioridade: Database["public"]["Enums"]["tarefa_prioridade"]
+          status: Database["public"]["Enums"]["tarefa_status"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          concluida_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string | null
+          hora?: string | null
+          id?: string
+          prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
+          status?: Database["public"]["Enums"]["tarefa_status"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          concluida_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string | null
+          hora?: string | null
+          id?: string
+          prioridade?: Database["public"]["Enums"]["tarefa_prioridade"]
+          status?: Database["public"]["Enums"]["tarefa_status"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -682,6 +724,8 @@ export type Database = {
         | "quente"
       profile_status: "pending" | "ativo" | "inativo"
       sentido_rota: "descida" | "subida" | "nenhum"
+      tarefa_prioridade: "baixa" | "normal" | "alta" | "urgente"
+      tarefa_status: "pendente" | "em_andamento" | "concluida" | "cancelada"
       veiculo_status: "operando" | "agendado" | "finalizado" | "manutencao"
     }
     CompositeTypes: {
@@ -852,6 +896,8 @@ export const Constants = {
       ],
       profile_status: ["pending", "ativo", "inativo"],
       sentido_rota: ["descida", "subida", "nenhum"],
+      tarefa_prioridade: ["baixa", "normal", "alta", "urgente"],
+      tarefa_status: ["pendente", "em_andamento", "concluida", "cancelada"],
       veiculo_status: ["operando", "agendado", "finalizado", "manutencao"],
     },
   },
