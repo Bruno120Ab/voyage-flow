@@ -316,6 +316,66 @@ export type Database = {
         }
         Relationships: []
       }
+      entregas: {
+        Row: {
+          cliente: string
+          codigo: string
+          comissao: number
+          created_at: string
+          created_by: string | null
+          data_operacao: string
+          destino: string | null
+          id: string
+          observacoes: string | null
+          origem: string | null
+          previsao: string | null
+          responsavel: string | null
+          status: Database["public"]["Enums"]["entrega_status"]
+          telefone: string | null
+          tipo: Database["public"]["Enums"]["entrega_tipo"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          cliente: string
+          codigo: string
+          comissao?: number
+          created_at?: string
+          created_by?: string | null
+          data_operacao?: string
+          destino?: string | null
+          id?: string
+          observacoes?: string | null
+          origem?: string | null
+          previsao?: string | null
+          responsavel?: string | null
+          status?: Database["public"]["Enums"]["entrega_status"]
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["entrega_tipo"]
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          cliente?: string
+          codigo?: string
+          comissao?: number
+          created_at?: string
+          created_by?: string | null
+          data_operacao?: string
+          destino?: string | null
+          id?: string
+          observacoes?: string | null
+          origem?: string | null
+          previsao?: string | null
+          responsavel?: string | null
+          status?: Database["public"]["Enums"]["entrega_status"]
+          telefone?: string | null
+          tipo?: Database["public"]["Enums"]["entrega_tipo"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           cidade: string | null
@@ -596,6 +656,14 @@ export type Database = {
         | "em_rota"
         | "finalizado"
         | "cancelado"
+      entrega_status:
+        | "pendente"
+        | "em_transito"
+        | "chegando"
+        | "recebida"
+        | "entregue"
+        | "cancelada"
+      entrega_tipo: "enviada" | "recebida"
       lead_etapa:
         | "novo"
         | "contato"
@@ -755,6 +823,15 @@ export const Constants = {
         "finalizado",
         "cancelado",
       ],
+      entrega_status: [
+        "pendente",
+        "em_transito",
+        "chegando",
+        "recebida",
+        "entregue",
+        "cancelada",
+      ],
+      entrega_tipo: ["enviada", "recebida"],
       lead_etapa: [
         "novo",
         "contato",
