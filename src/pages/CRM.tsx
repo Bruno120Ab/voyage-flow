@@ -229,7 +229,7 @@ export default function CRM() {
           <TabsTrigger value="funil"><KanbanSquare className="h-3.5 w-3.5 mr-1.5" /> Funil (Kanban)</TabsTrigger>
           <TabsTrigger value="agenda" className="relative">
             <CalendarClock className="h-3.5 w-3.5 mr-1.5" /> Agenda do Dia
-            {metrics.agenda.length > 0 && (
+            {(metrics.agenda.length > 0 || tarefasPendentesHoje > 0) && (
               <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive shadow-glow"></span>
             )}
           </TabsTrigger>
