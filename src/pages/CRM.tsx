@@ -40,41 +40,49 @@ const columns: { key: Etapa; title: string; color: string; hex: string }[] = [
 export default function CRM() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [embarques, setEmbarques] = useState<EmbarqueDia[]>([]);
+  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("cockpit");
+
+  // Task dialog state
+  const [taskDialog, setTaskDialog] = useState(false);
+  const [titulo, setTitulo] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [dataTarefa, setDataTarefa] = useState(new Date().toISOString().slice(0, 10));
+  const [hora, setHora] = useState("");
+  const [prioridade, setPrioridade] = useState<"baixa" | "normal" | "alta" | "urgente">("normal");
+  const [filtroTarefas, setFiltroTarefas] = useState<"hoje" | "todas" | "concluidas">("hoje");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const loadLeads = async () => {
       const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
       setLeads((data ?? []) as Lead[]);
     };
-    
     const loadEmbarques = async () => {
       const hoje = new Date().toISOString().slice(0, 10);
       const { data } = await supabase.from("embarques_dia").select("*").eq("data_operacao", hoje);
       setEmbarques((data ?? []) as EmbarqueDia[]);
     };
+    const loadTarefas = async () => {
+      const { data } = await supabase.from("tarefas").select("*").order("data", { ascending: true });
+      setTarefas((data ?? []) as Tarefa[]);
+    };
 
     const init = async () => {
-      await Promise.all([loadLeads(), loadEmbarques()]);
+      await Promise.all([loadLeads(), loadEmbarques(), loadTarefas()]);
       setLoading(false);
     };
     init();
 
-    const channelLeads = supabase
-      .channel("crm-leads")
+    const channel = supabase
+      .channel("crm-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, loadLeads)
-      .subscribe();
-      
-    const channelEmbarques = supabase
-      .channel("crm-embarques")
       .on("postgres_changes", { event: "*", schema: "public", table: "embarques_dia" }, loadEmbarques)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tarefas" }, loadTarefas)
       .subscribe();
 
-    return () => { 
-      supabase.removeChannel(channelLeads); 
-      supabase.removeChannel(channelEmbarques); 
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const openWhats = (tel: string | null) => {
