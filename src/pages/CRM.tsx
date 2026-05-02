@@ -448,6 +448,149 @@ export default function CRM() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="atendimento" className="space-y-5">
+          {/* Mini-dashboard */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Card className="glass-card p-4 border-t-4 border-t-destructive">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Aguardando atendimento</p>
+              <p className="font-display text-2xl font-bold text-destructive mt-1">{listas.naoAtendidos.length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-accent">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Em negociação</p>
+              <p className="font-display text-2xl font-bold text-accent mt-1">{leads.filter(l => (l as any).kanban_status === "em_atendimento").length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-primary">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Prontos p/ revenda</p>
+              <p className="font-display text-2xl font-bold text-primary mt-1">{listas.prontosRevenda.length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-warning">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Embarques hoje</p>
+              <p className="font-display text-2xl font-bold text-warning mt-1">{embarques.length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-success">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Sem resposta 3+ dias</p>
+              <p className="font-display text-2xl font-bold text-success mt-1">{listas.semResposta.length}</p>
+            </Card>
+          </div>
+
+          {/* Toolbar */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar nome ou telefone..." className="pl-9" />
+            </div>
+            <Select value={filtroDestino || "all"} onValueChange={v => setFiltroDestino(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Destino" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos destinos</SelectItem>
+                {destinosDisponiveis.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={abrirNovoCliente} className="bg-gradient-gold text-primary-foreground">
+              <UserPlus className="h-4 w-4 mr-1.5" /> Novo cliente
+            </Button>
+          </div>
+
+          {/* Listas inteligentes */}
+          {(listas.prontosRevenda.length > 0 || listas.semResposta.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {listas.prontosRevenda.length > 0 && (
+                <Card className="glass-card p-3 border-l-4 border-l-primary">
+                  <p className="text-xs font-semibold flex items-center gap-1.5 mb-2"><Repeat className="h-3.5 w-3.5 text-primary" /> Oportunidades de revenda ({listas.prontosRevenda.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {listas.prontosRevenda.slice(0, 6).map(l => (
+                      <button key={l.id} onClick={() => editarCliente(l)} className="text-[11px] px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20">{l.nome}</button>
+                    ))}
+                  </div>
+                </Card>
+              )}
+              {listas.semResposta.length > 0 && (
+                <Card className="glass-card p-3 border-l-4 border-l-warning">
+                  <p className="text-xs font-semibold flex items-center gap-1.5 mb-2"><AlertCircle className="h-3.5 w-3.5 text-warning" /> Sem resposta há 3+ dias ({listas.semResposta.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {listas.semResposta.slice(0, 6).map(l => (
+                      <button key={l.id} onClick={() => openWhats(l.whatsapp || l.telefone)} className="text-[11px] px-2 py-1 rounded-full bg-warning/10 text-warning hover:bg-warning/20">{l.nome}</button>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Kanban de atendimento */}
+          <div className="overflow-x-auto pb-4 scrollbar-thin">
+            <div className="flex gap-3 min-w-max">
+              {kanbanCols.map(col => {
+                const cards = leadsFiltrados.filter(l => ((l as any).kanban_status || "nao_atendido") === col.key);
+                return (
+                  <div
+                    key={col.key}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => { if (draggingId) { moverKanban(draggingId, col.key); setDraggingId(null); } }}
+                    className={`w-[280px] shrink-0 rounded-xl bg-card-elevated/20 border border-border/40 border-t-2 ${col.ring} p-3 flex flex-col max-h-[70vh]`}
+                  >
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <h3 className="font-display font-semibold text-sm flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.hex }}></span>
+                        {col.title}
+                      </h3>
+                      <Badge variant="secondary" className="text-xs bg-background/50">{cards.length}</Badge>
+                    </div>
+                    <div className="space-y-2 overflow-y-auto pr-1 flex-1 scrollbar-thin">
+                      {cards.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground/60 text-center py-6 border border-dashed border-border/50 rounded-lg">Vazio</p>
+                      )}
+                      {cards.map(c => {
+                        const ult = (c as any).ultima_interacao;
+                        const ultMsg = (c as any).ultima_mensagem;
+                        return (
+                          <Card
+                            key={c.id}
+                            draggable
+                            onDragStart={() => setDraggingId(c.id)}
+                            onDragEnd={() => setDraggingId(null)}
+                            className="glass-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all group"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-semibold text-sm leading-tight truncate">{c.nome}</p>
+                              <button onClick={() => editarCliente(c)} className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-primary">
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            {(c.whatsapp || c.telefone) && (
+                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1"><Phone className="h-2.5 w-2.5" /> {c.whatsapp || c.telefone}</p>
+                            )}
+                            {c.destino && (
+                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1"><MapPin className="h-2.5 w-2.5" /> {c.destino}</p>
+                            )}
+                            {ultMsg && (
+                              <p className="text-[11px] italic text-foreground/70 mt-1 line-clamp-2">"{ultMsg}"</p>
+                            )}
+                            {ult && (
+                              <p className="text-[10px] text-muted-foreground mt-1">{format(parseISO(ult), "dd/MM HH:mm")}</p>
+                            )}
+                            <div className="flex gap-1 mt-2 pt-2 border-t border-border/40">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-success hover:bg-success/10" onClick={() => openWhats(c.whatsapp || c.telefone)} title="WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={() => abrirEmbarque(c)} title="Novo embarque"><Bus className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-accent/10" onClick={() => abrirHistorico(c)} title="Histórico"><Users className="h-3.5 w-3.5" /></Button>
+                              <Select value={(c as any).kanban_status || "nao_atendido"} onValueChange={(v) => moverKanban(c.id, v as KanbanStatus)}>
+                                <SelectTrigger className="h-7 ml-auto text-[10px] w-auto px-2 border-border/50"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {kanbanCols.map(k => <SelectItem key={k.key} value={k.key} className="text-xs">{k.title}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </TabsContent>
+
         <TabsContent value="cockpit" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="glass-card p-5 border-t-4 border-t-primary">
