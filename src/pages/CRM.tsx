@@ -37,6 +37,24 @@ const columns: { key: Etapa; title: string; color: string; hex: string }[] = [
   { key: "pos_venda", title: "Pós-venda", color: "border-t-muted-foreground text-muted-foreground", hex: "#64748b" },
 ];
 
+// === KANBAN DE ATENDIMENTO ===
+type KanbanStatus = "nao_atendido" | "em_atendimento" | "venda" | "revenda" | "aguardando" | "finalizado";
+
+const kanbanCols: { key: KanbanStatus; title: string; hex: string; ring: string }[] = [
+  { key: "nao_atendido", title: "Não atendido", hex: "#ef4444", ring: "border-t-destructive" },
+  { key: "em_atendimento", title: "Em atendimento", hex: "#3b82f6", ring: "border-t-accent" },
+  { key: "venda", title: "Venda", hex: "#22c55e", ring: "border-t-success" },
+  { key: "revenda", title: "Revenda", hex: "#a855f7", ring: "border-t-primary" },
+  { key: "aguardando", title: "Aguardando", hex: "#f59e0b", ring: "border-t-warning" },
+  { key: "finalizado", title: "Finalizado", hex: "#64748b", ring: "border-t-muted-foreground" },
+];
+
+// Placeholder de integração com WhatsApp API (futuro)
+export async function enviarMensagem(telefone: string, texto: string) {
+  console.log("[enviarMensagem] integração futura WhatsApp API", { telefone, texto });
+  return { ok: true };
+}
+
 export default function CRM() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [embarques, setEmbarques] = useState<EmbarqueDia[]>([]);
