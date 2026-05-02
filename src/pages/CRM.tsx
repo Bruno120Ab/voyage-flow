@@ -362,6 +362,60 @@ export default function CRM() {
     return { pipelineTotal, receitaMensal, winRate, chartData, topOps, agenda, proxEmbarque, atrasados };
   }, [leads, embarques]);
 
+  // === Filtros e dados do Kanban de atendimento ===
+  const leadsFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return leads.filter(l => {
+      if (q) {
+        const hay = `${l.nome} ${l.telefone || ""} ${l.whatsapp || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (filtroDestino && !(l.destino || "").toLowerCase().includes(filtroDestino.toLowerCase())) return false;
+      return true;
+    });
+  }, [leads, busca, filtroDestino]);
+
+  const destinosDisponiveis = useMemo(() => {
+    return Array.from(new Set(leads.map(l => l.destino).filter(Boolean) as string[])).sort();
+  }, [leads]);
+
+  // Listas inteligentes
+  const listas = useMemo(() => {
+    const now = Date.now();
+    const dia = 24 * 3600 * 1000;
+    const naoAtendidos = leads.filter(l => (l as any).kanban_status === "nao_atendido");
+    const semResposta = leads.filter(l => {
+      const ult = (l as any).ultima_interacao;
+      if (!ult) return false;
+      const status = (l as any).kanban_status;
+      return ["em_atendimento","aguardando"].includes(status) && (now - new Date(ult).getTime()) > 3 * dia;
+    });
+    const recentes = leads.filter(l => (now - new Date(l.created_at).getTime()) < 7 * dia);
+    const prontosRevenda = leads.filter(l => (l as any).pronto_revenda || (l as any).kanban_status === "revenda");
+    return { naoAtendidos, semResposta, recentes, prontosRevenda };
+  }, [leads]);
+
+  // Auto: marcar leads como prontos para revenda quando embarque foi concluído + dias passaram
+  useEffect(() => {
+    if (!leads.length) return;
+    const now = Date.now();
+    const dia = 24 * 3600 * 1000;
+    const ja = new Set(leads.filter(l => (l as any).pronto_revenda).map(l => l.id));
+    const candidatos: string[] = [];
+    embarques.forEach(e => {
+      const lid = (e as any).lead_id as string | null;
+      if (!lid || ja.has(lid)) return;
+      const ref = (e as any).data_ida || e.data_operacao;
+      if (!ref) return;
+      const dias = (e as any).dias_para_retorno ?? 7;
+      const decorrido = (now - new Date(ref).getTime()) / dia;
+      if (decorrido >= dias) candidatos.push(lid);
+    });
+    if (candidatos.length) {
+      supabase.from("leads").update({ pronto_revenda: true, kanban_status: "revenda" } as any).in("id", candidatos).then(() => {});
+    }
+  }, [embarques, leads]);
+
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
