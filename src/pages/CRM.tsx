@@ -914,6 +914,91 @@ export default function CRM() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog Cliente */}
+      <Dialog open={clienteDialog} onOpenChange={setClienteDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>{editingLead ? "Editar cliente" : "Novo cliente"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Nome *</Label><Input value={cNome} onChange={e => setCNome(e.target.value)} /></div>
+              <div><Label className="text-xs">Cidade</Label><Input value={cCidade} onChange={e => setCCidade(e.target.value)} /></div>
+              <div><Label className="text-xs">Telefone</Label><Input value={cTelefone} onChange={e => setCTelefone(e.target.value)} /></div>
+              <div><Label className="text-xs">WhatsApp</Label><Input value={cWhats} onChange={e => setCWhats(e.target.value)} /></div>
+              <div><Label className="text-xs">Destino</Label><Input value={cDestino} onChange={e => setCDestino(e.target.value)} /></div>
+              <div>
+                <Label className="text-xs">Status (Kanban)</Label>
+                <Select value={cKanban} onValueChange={(v: any) => setCKanban(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {kanbanCols.map(k => <SelectItem key={k.key} value={k.key}>{k.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div><Label className="text-xs">Última mensagem</Label><Input value={cUltimaMsg} onChange={e => setCUltimaMsg(e.target.value)} placeholder="Ex: Cliente pediu cotação para sábado" /></div>
+            <div><Label className="text-xs">Observações</Label><Textarea value={cObs} onChange={e => setCObs(e.target.value)} rows={2} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setClienteDialog(false)}>Cancelar</Button>
+            <Button onClick={salvarCliente} disabled={saving} className="bg-gradient-gold text-primary-foreground">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Embarque */}
+      <Dialog open={embDialog} onOpenChange={setEmbDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Novo embarque</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-xs">Cliente</Label><Input value={embCliente} onChange={e => setEmbCliente(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Destino</Label><Input value={embDestino} onChange={e => setEmbDestino(e.target.value)} /></div>
+              <div><Label className="text-xs">Local de embarque</Label><Input value={embLocal} onChange={e => setEmbLocal(e.target.value)} /></div>
+              <div><Label className="text-xs">Data da ida</Label><Input type="date" value={embData} onChange={e => setEmbData(e.target.value)} /></div>
+              <div><Label className="text-xs">Hora</Label><Input type="time" value={embHora} onChange={e => setEmbHora(e.target.value)} /></div>
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={embStatus} onValueChange={(v: any) => setEmbStatus(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Agendado</SelectItem>
+                    <SelectItem value="em_andamento">Embarcado</SelectItem>
+                    <SelectItem value="concluido">Finalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Dias para retorno</Label><Input type="number" min={0} value={embDias} onChange={e => setEmbDias(Number(e.target.value))} /></div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEmbDialog(false)}>Cancelar</Button>
+            <Button onClick={salvarEmbarque} disabled={saving} className="bg-gradient-gold text-primary-foreground">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cadastrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Histórico */}
+      <Dialog open={histDialog} onOpenChange={setHistDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Histórico — {histLead?.nome}</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {histEmbarques.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">Nenhum embarque registrado.</p>
+            ) : histEmbarques.map(e => (
+              <div key={e.id} className="p-3 rounded-lg border border-border/40 bg-card-elevated/30 text-sm">
+                <div className="flex justify-between"><span className="font-semibold">{e.cidade_destino || e.rota}</span><Badge variant="outline">{e.status}</Badge></div>
+                <p className="text-xs text-muted-foreground mt-1">{e.data_operacao} {e.hora_saida_prevista || ""}</p>
+                {e.observacao && <p className="text-xs mt-1">{e.observacao}</p>}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
