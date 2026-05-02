@@ -431,11 +431,17 @@ export default function CRM() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-        <TabsList className="bg-card-elevated/50">
-          <TabsTrigger value="cockpit"><LayoutDashboard className="h-3.5 w-3.5 mr-1.5" /> Cockpit Insights</TabsTrigger>
-          <TabsTrigger value="funil"><KanbanSquare className="h-3.5 w-3.5 mr-1.5" /> Funil (Kanban)</TabsTrigger>
+        <TabsList className="bg-card-elevated/50 flex-wrap h-auto">
+          <TabsTrigger value="cockpit"><LayoutDashboard className="h-3.5 w-3.5 mr-1.5" /> Cockpit</TabsTrigger>
+          <TabsTrigger value="atendimento" className="relative">
+            <Inbox className="h-3.5 w-3.5 mr-1.5" /> Atendimento
+            {listas.naoAtendidos.length > 0 && (
+              <span className="ml-1.5 text-[10px] bg-destructive/20 text-destructive px-1.5 rounded-full">{listas.naoAtendidos.length}</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="funil"><KanbanSquare className="h-3.5 w-3.5 mr-1.5" /> Funil</TabsTrigger>
           <TabsTrigger value="agenda" className="relative">
-            <CalendarClock className="h-3.5 w-3.5 mr-1.5" /> Agenda do Dia
+            <CalendarClock className="h-3.5 w-3.5 mr-1.5" /> Agenda
             {(metrics.agenda.length > 0 || tarefasPendentesHoje > 0) && (
               <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive shadow-glow"></span>
             )}
