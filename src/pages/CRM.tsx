@@ -182,7 +182,108 @@ export default function CRM() {
     else toast.success("Tarefa removida");
   };
 
-  const tarefasFiltradas = useMemo(() => {
+  // === Cliente CRUD ===
+  const resetCliente = () => {
+    setEditingLead(null);
+    setCNome(""); setCTelefone(""); setCWhats(""); setCCidade("");
+    setCDestino(""); setCObs(""); setCUltimaMsg(""); setCKanban("nao_atendido");
+  };
+
+  const abrirNovoCliente = () => { resetCliente(); setClienteDialog(true); };
+
+  const editarCliente = (l: Lead) => {
+    setEditingLead(l);
+    setCNome(l.nome); setCTelefone(l.telefone || ""); setCWhats(l.whatsapp || "");
+    setCCidade(l.cidade || ""); setCDestino(l.destino || ""); setCObs(l.observacoes || "");
+    setCUltimaMsg((l as any).ultima_mensagem || "");
+    setCKanban(((l as any).kanban_status as KanbanStatus) || "nao_atendido");
+    setClienteDialog(true);
+  };
+
+  const salvarCliente = async () => {
+    if (!cNome.trim()) { toast.error("Informe o nome"); return; }
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const payload: any = {
+      nome: cNome.trim(),
+      telefone: cTelefone.trim() || null,
+      whatsapp: cWhats.trim() || cTelefone.trim() || null,
+      cidade: cCidade.trim() || null,
+      destino: cDestino.trim() || null,
+      observacoes: cObs.trim() || null,
+      ultima_mensagem: cUltimaMsg.trim() || null,
+      kanban_status: cKanban,
+      ultima_interacao: new Date().toISOString(),
+    };
+    let error;
+    if (editingLead) {
+      ({ error } = await supabase.from("leads").update(payload).eq("id", editingLead.id));
+    } else {
+      payload.created_by = user?.id;
+      ({ error } = await supabase.from("leads").insert(payload));
+    }
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(editingLead ? "Cliente atualizado" : "Cliente cadastrado");
+    setClienteDialog(false);
+  };
+
+  const moverKanban = async (leadId: string, novo: KanbanStatus) => {
+    const { error } = await supabase.from("leads").update({
+      kanban_status: novo,
+      ultima_interacao: new Date().toISOString(),
+      ...(novo === "finalizado" ? { pronto_revenda: false } : {}),
+    } as any).eq("id", leadId);
+    if (error) toast.error(error.message);
+  };
+
+  // === Embarque vinculado ao cliente ===
+  const abrirEmbarque = (l: Lead) => {
+    setEmbLeadId(l.id);
+    setEmbCliente(l.nome);
+    setEmbDestino(l.destino || "");
+    setEmbData(new Date().toISOString().slice(0, 10));
+    setEmbHora("");
+    setEmbLocal(l.cidade || "");
+    setEmbStatus("pendente");
+    setEmbDias(7);
+    setEmbDialog(true);
+  };
+
+  const salvarEmbarque = async () => {
+    if (!embCliente.trim() || !embDestino.trim()) { toast.error("Cliente e destino obrigatórios"); return; }
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("embarques_dia").insert({
+      lead_id: embLeadId,
+      cliente_nome: embCliente.trim(),
+      cidade_origem: embLocal.trim() || null,
+      cidade_destino: embDestino.trim(),
+      local_embarque: embLocal.trim() || null,
+      data_operacao: embData,
+      data_ida: embData,
+      hora_saida_prevista: embHora || null,
+      dias_para_retorno: embDias,
+      rota: `${embLocal || "—"} → ${embDestino}`,
+      servico: `WEB-${Date.now().toString().slice(-5)}`,
+      sentido: "ida",
+      status: embStatus,
+      created_by: user?.id,
+    } as any);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Embarque cadastrado");
+    setEmbDialog(false);
+  };
+
+  // === Histórico ===
+  const abrirHistorico = async (l: Lead) => {
+    setHistLead(l);
+    const { data } = await supabase.from("embarques_dia").select("*").eq("lead_id", l.id).order("data_operacao", { ascending: false });
+    setHistEmbarques((data ?? []) as EmbarqueDia[]);
+    setHistDialog(true);
+  };
+
     const hoje = new Date().toISOString().slice(0, 10);
     let list = tarefas;
     if (filtroTarefas === "hoje") list = tarefas.filter(t => t.data === hoje && t.status !== "concluida" && t.status !== "cancelada");
