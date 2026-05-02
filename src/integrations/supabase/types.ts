@@ -249,14 +249,19 @@ export type Database = {
           carro: string
           cidade_destino: string | null
           cidade_origem: string | null
+          cliente_nome: string | null
           created_at: string
           created_by: string | null
+          data_ida: string | null
           data_operacao: string
+          dias_para_retorno: number | null
           encomenda: string | null
           hora_real: string | null
           hora_saida_prevista: string | null
           hora_saida_real: string | null
           id: string
+          lead_id: string | null
+          local_embarque: string | null
           motorista: string | null
           observacao: string | null
           passou: boolean
@@ -272,14 +277,19 @@ export type Database = {
           carro?: string
           cidade_destino?: string | null
           cidade_origem?: string | null
+          cliente_nome?: string | null
           created_at?: string
           created_by?: string | null
+          data_ida?: string | null
           data_operacao?: string
+          dias_para_retorno?: number | null
           encomenda?: string | null
           hora_real?: string | null
           hora_saida_prevista?: string | null
           hora_saida_real?: string | null
           id?: string
+          lead_id?: string | null
+          local_embarque?: string | null
           motorista?: string | null
           observacao?: string | null
           passou?: boolean
@@ -295,14 +305,19 @@ export type Database = {
           carro?: string
           cidade_destino?: string | null
           cidade_origem?: string | null
+          cliente_nome?: string | null
           created_at?: string
           created_by?: string | null
+          data_ida?: string | null
           data_operacao?: string
+          dias_para_retorno?: number | null
           encomenda?: string | null
           hora_real?: string | null
           hora_saida_prevista?: string | null
           hora_saida_real?: string | null
           id?: string
+          lead_id?: string | null
+          local_embarque?: string | null
           motorista?: string | null
           observacao?: string | null
           passou?: boolean
@@ -382,16 +397,21 @@ export type Database = {
           created_at: string
           created_by: string | null
           destino: string | null
+          dias_para_retorno: number | null
           email: string | null
           etapa: Database["public"]["Enums"]["lead_etapa"]
           follow_up_em: string | null
           id: string
+          kanban_status: string
           nome: string
           observacoes: string | null
           origem: string | null
           passageiro_id: string | null
+          pronto_revenda: boolean
           responsavel_id: string | null
           telefone: string | null
+          ultima_interacao: string | null
+          ultima_mensagem: string | null
           updated_at: string
           valor_estimado: number
           whatsapp: string | null
@@ -401,16 +421,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           destino?: string | null
+          dias_para_retorno?: number | null
           email?: string | null
           etapa?: Database["public"]["Enums"]["lead_etapa"]
           follow_up_em?: string | null
           id?: string
+          kanban_status?: string
           nome: string
           observacoes?: string | null
           origem?: string | null
           passageiro_id?: string | null
+          pronto_revenda?: boolean
           responsavel_id?: string | null
           telefone?: string | null
+          ultima_interacao?: string | null
+          ultima_mensagem?: string | null
           updated_at?: string
           valor_estimado?: number
           whatsapp?: string | null
@@ -420,16 +445,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           destino?: string | null
+          dias_para_retorno?: number | null
           email?: string | null
           etapa?: Database["public"]["Enums"]["lead_etapa"]
           follow_up_em?: string | null
           id?: string
+          kanban_status?: string
           nome?: string
           observacoes?: string | null
           origem?: string | null
           passageiro_id?: string | null
+          pronto_revenda?: boolean
           responsavel_id?: string | null
           telefone?: string | null
+          ultima_interacao?: string | null
+          ultima_mensagem?: string | null
           updated_at?: string
           valor_estimado?: number
           whatsapp?: string | null

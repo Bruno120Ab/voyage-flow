@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus, Plus, Trash2, ListChecks, Clock } from "lucide-react";
+import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus, Plus, Trash2, ListChecks, Clock, Search, UserPlus, Repeat, Users, Inbox, Edit3, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -37,6 +37,24 @@ const columns: { key: Etapa; title: string; color: string; hex: string }[] = [
   { key: "pos_venda", title: "Pós-venda", color: "border-t-muted-foreground text-muted-foreground", hex: "#64748b" },
 ];
 
+// === KANBAN DE ATENDIMENTO ===
+type KanbanStatus = "nao_atendido" | "em_atendimento" | "venda" | "revenda" | "aguardando" | "finalizado";
+
+const kanbanCols: { key: KanbanStatus; title: string; hex: string; ring: string }[] = [
+  { key: "nao_atendido", title: "Não atendido", hex: "#ef4444", ring: "border-t-destructive" },
+  { key: "em_atendimento", title: "Em atendimento", hex: "#3b82f6", ring: "border-t-accent" },
+  { key: "venda", title: "Venda", hex: "#22c55e", ring: "border-t-success" },
+  { key: "revenda", title: "Revenda", hex: "#a855f7", ring: "border-t-primary" },
+  { key: "aguardando", title: "Aguardando", hex: "#f59e0b", ring: "border-t-warning" },
+  { key: "finalizado", title: "Finalizado", hex: "#64748b", ring: "border-t-muted-foreground" },
+];
+
+// Placeholder de integração com WhatsApp API (futuro)
+export async function enviarMensagem(telefone: string, texto: string) {
+  console.log("[enviarMensagem] integração futura WhatsApp API", { telefone, texto });
+  return { ok: true };
+}
+
 export default function CRM() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [embarques, setEmbarques] = useState<EmbarqueDia[]>([]);
@@ -53,6 +71,39 @@ export default function CRM() {
   const [prioridade, setPrioridade] = useState<"baixa" | "normal" | "alta" | "urgente">("normal");
   const [filtroTarefas, setFiltroTarefas] = useState<"hoje" | "todas" | "concluidas">("hoje");
   const [saving, setSaving] = useState(false);
+
+  // === Kanban de atendimento ===
+  const [busca, setBusca] = useState("");
+  const [filtroDestino, setFiltroDestino] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  // Cliente dialog
+  const [clienteDialog, setClienteDialog] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [cNome, setCNome] = useState("");
+  const [cTelefone, setCTelefone] = useState("");
+  const [cWhats, setCWhats] = useState("");
+  const [cCidade, setCCidade] = useState("");
+  const [cDestino, setCDestino] = useState("");
+  const [cObs, setCObs] = useState("");
+  const [cUltimaMsg, setCUltimaMsg] = useState("");
+  const [cKanban, setCKanban] = useState<KanbanStatus>("nao_atendido");
+
+  // Embarque dialog
+  const [embDialog, setEmbDialog] = useState(false);
+  const [embLeadId, setEmbLeadId] = useState<string | null>(null);
+  const [embCliente, setEmbCliente] = useState("");
+  const [embDestino, setEmbDestino] = useState("");
+  const [embData, setEmbData] = useState(new Date().toISOString().slice(0, 10));
+  const [embHora, setEmbHora] = useState("");
+  const [embLocal, setEmbLocal] = useState("");
+  const [embStatus, setEmbStatus] = useState<"pendente" | "em_andamento" | "concluido">("pendente");
+  const [embDias, setEmbDias] = useState<number>(7);
+
+  // Histórico
+  const [histDialog, setHistDialog] = useState(false);
+  const [histLead, setHistLead] = useState<Lead | null>(null);
+  const [histEmbarques, setHistEmbarques] = useState<EmbarqueDia[]>([]);
 
   useEffect(() => {
     const loadLeads = async () => {
@@ -129,6 +180,108 @@ export default function CRM() {
     const { error } = await supabase.from("tarefas").delete().eq("id", id);
     if (error) toast.error(error.message);
     else toast.success("Tarefa removida");
+  };
+
+  // === Cliente CRUD ===
+  const resetCliente = () => {
+    setEditingLead(null);
+    setCNome(""); setCTelefone(""); setCWhats(""); setCCidade("");
+    setCDestino(""); setCObs(""); setCUltimaMsg(""); setCKanban("nao_atendido");
+  };
+
+  const abrirNovoCliente = () => { resetCliente(); setClienteDialog(true); };
+
+  const editarCliente = (l: Lead) => {
+    setEditingLead(l);
+    setCNome(l.nome); setCTelefone(l.telefone || ""); setCWhats(l.whatsapp || "");
+    setCCidade(l.cidade || ""); setCDestino(l.destino || ""); setCObs(l.observacoes || "");
+    setCUltimaMsg((l as any).ultima_mensagem || "");
+    setCKanban(((l as any).kanban_status as KanbanStatus) || "nao_atendido");
+    setClienteDialog(true);
+  };
+
+  const salvarCliente = async () => {
+    if (!cNome.trim()) { toast.error("Informe o nome"); return; }
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const payload: any = {
+      nome: cNome.trim(),
+      telefone: cTelefone.trim() || null,
+      whatsapp: cWhats.trim() || cTelefone.trim() || null,
+      cidade: cCidade.trim() || null,
+      destino: cDestino.trim() || null,
+      observacoes: cObs.trim() || null,
+      ultima_mensagem: cUltimaMsg.trim() || null,
+      kanban_status: cKanban,
+      ultima_interacao: new Date().toISOString(),
+    };
+    let error;
+    if (editingLead) {
+      ({ error } = await supabase.from("leads").update(payload).eq("id", editingLead.id));
+    } else {
+      payload.created_by = user?.id;
+      ({ error } = await supabase.from("leads").insert(payload));
+    }
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(editingLead ? "Cliente atualizado" : "Cliente cadastrado");
+    setClienteDialog(false);
+  };
+
+  const moverKanban = async (leadId: string, novo: KanbanStatus) => {
+    const { error } = await supabase.from("leads").update({
+      kanban_status: novo,
+      ultima_interacao: new Date().toISOString(),
+      ...(novo === "finalizado" ? { pronto_revenda: false } : {}),
+    } as any).eq("id", leadId);
+    if (error) toast.error(error.message);
+  };
+
+  // === Embarque vinculado ao cliente ===
+  const abrirEmbarque = (l: Lead) => {
+    setEmbLeadId(l.id);
+    setEmbCliente(l.nome);
+    setEmbDestino(l.destino || "");
+    setEmbData(new Date().toISOString().slice(0, 10));
+    setEmbHora("");
+    setEmbLocal(l.cidade || "");
+    setEmbStatus("pendente");
+    setEmbDias(7);
+    setEmbDialog(true);
+  };
+
+  const salvarEmbarque = async () => {
+    if (!embCliente.trim() || !embDestino.trim()) { toast.error("Cliente e destino obrigatórios"); return; }
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from("embarques_dia").insert({
+      lead_id: embLeadId,
+      cliente_nome: embCliente.trim(),
+      cidade_origem: embLocal.trim() || null,
+      cidade_destino: embDestino.trim(),
+      local_embarque: embLocal.trim() || null,
+      data_operacao: embData,
+      data_ida: embData,
+      hora_saida_prevista: embHora || null,
+      dias_para_retorno: embDias,
+      rota: `${embLocal || "—"} → ${embDestino}`,
+      servico: `WEB-${Date.now().toString().slice(-5)}`,
+      sentido: "ida",
+      status: embStatus,
+      created_by: user?.id,
+    } as any);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Embarque cadastrado");
+    setEmbDialog(false);
+  };
+
+  // === Histórico ===
+  const abrirHistorico = async (l: Lead) => {
+    setHistLead(l);
+    const { data } = await supabase.from("embarques_dia").select("*").eq("lead_id", l.id).order("data_operacao", { ascending: false });
+    setHistEmbarques((data ?? []) as EmbarqueDia[]);
+    setHistDialog(true);
   };
 
   const tarefasFiltradas = useMemo(() => {
@@ -209,6 +362,60 @@ export default function CRM() {
     return { pipelineTotal, receitaMensal, winRate, chartData, topOps, agenda, proxEmbarque, atrasados };
   }, [leads, embarques]);
 
+  // === Filtros e dados do Kanban de atendimento ===
+  const leadsFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return leads.filter(l => {
+      if (q) {
+        const hay = `${l.nome} ${l.telefone || ""} ${l.whatsapp || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (filtroDestino && !(l.destino || "").toLowerCase().includes(filtroDestino.toLowerCase())) return false;
+      return true;
+    });
+  }, [leads, busca, filtroDestino]);
+
+  const destinosDisponiveis = useMemo(() => {
+    return Array.from(new Set(leads.map(l => l.destino).filter(Boolean) as string[])).sort();
+  }, [leads]);
+
+  // Listas inteligentes
+  const listas = useMemo(() => {
+    const now = Date.now();
+    const dia = 24 * 3600 * 1000;
+    const naoAtendidos = leads.filter(l => (l as any).kanban_status === "nao_atendido");
+    const semResposta = leads.filter(l => {
+      const ult = (l as any).ultima_interacao;
+      if (!ult) return false;
+      const status = (l as any).kanban_status;
+      return ["em_atendimento","aguardando"].includes(status) && (now - new Date(ult).getTime()) > 3 * dia;
+    });
+    const recentes = leads.filter(l => (now - new Date(l.created_at).getTime()) < 7 * dia);
+    const prontosRevenda = leads.filter(l => (l as any).pronto_revenda || (l as any).kanban_status === "revenda");
+    return { naoAtendidos, semResposta, recentes, prontosRevenda };
+  }, [leads]);
+
+  // Auto: marcar leads como prontos para revenda quando embarque foi concluído + dias passaram
+  useEffect(() => {
+    if (!leads.length) return;
+    const now = Date.now();
+    const dia = 24 * 3600 * 1000;
+    const ja = new Set(leads.filter(l => (l as any).pronto_revenda).map(l => l.id));
+    const candidatos: string[] = [];
+    embarques.forEach(e => {
+      const lid = (e as any).lead_id as string | null;
+      if (!lid || ja.has(lid)) return;
+      const ref = (e as any).data_ida || e.data_operacao;
+      if (!ref) return;
+      const dias = (e as any).dias_para_retorno ?? 7;
+      const decorrido = (now - new Date(ref).getTime()) / dia;
+      if (decorrido >= dias) candidatos.push(lid);
+    });
+    if (candidatos.length) {
+      supabase.from("leads").update({ pronto_revenda: true, kanban_status: "revenda" } as any).in("id", candidatos).then(() => {});
+    }
+  }, [embarques, leads]);
+
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
@@ -224,16 +431,165 @@ export default function CRM() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-        <TabsList className="bg-card-elevated/50">
-          <TabsTrigger value="cockpit"><LayoutDashboard className="h-3.5 w-3.5 mr-1.5" /> Cockpit Insights</TabsTrigger>
-          <TabsTrigger value="funil"><KanbanSquare className="h-3.5 w-3.5 mr-1.5" /> Funil (Kanban)</TabsTrigger>
+        <TabsList className="bg-card-elevated/50 flex-wrap h-auto">
+          <TabsTrigger value="cockpit"><LayoutDashboard className="h-3.5 w-3.5 mr-1.5" /> Cockpit</TabsTrigger>
+          <TabsTrigger value="atendimento" className="relative">
+            <Inbox className="h-3.5 w-3.5 mr-1.5" /> Atendimento
+            {listas.naoAtendidos.length > 0 && (
+              <span className="ml-1.5 text-[10px] bg-destructive/20 text-destructive px-1.5 rounded-full">{listas.naoAtendidos.length}</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="funil"><KanbanSquare className="h-3.5 w-3.5 mr-1.5" /> Funil</TabsTrigger>
           <TabsTrigger value="agenda" className="relative">
-            <CalendarClock className="h-3.5 w-3.5 mr-1.5" /> Agenda do Dia
+            <CalendarClock className="h-3.5 w-3.5 mr-1.5" /> Agenda
             {(metrics.agenda.length > 0 || tarefasPendentesHoje > 0) && (
               <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive shadow-glow"></span>
             )}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="atendimento" className="space-y-5">
+          {/* Mini-dashboard */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Card className="glass-card p-4 border-t-4 border-t-destructive">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Aguardando atendimento</p>
+              <p className="font-display text-2xl font-bold text-destructive mt-1">{listas.naoAtendidos.length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-accent">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Em negociação</p>
+              <p className="font-display text-2xl font-bold text-accent mt-1">{leads.filter(l => (l as any).kanban_status === "em_atendimento").length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-primary">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Prontos p/ revenda</p>
+              <p className="font-display text-2xl font-bold text-primary mt-1">{listas.prontosRevenda.length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-warning">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Embarques hoje</p>
+              <p className="font-display text-2xl font-bold text-warning mt-1">{embarques.length}</p>
+            </Card>
+            <Card className="glass-card p-4 border-t-4 border-t-success">
+              <p className="text-[10px] uppercase font-semibold text-muted-foreground">Sem resposta 3+ dias</p>
+              <p className="font-display text-2xl font-bold text-success mt-1">{listas.semResposta.length}</p>
+            </Card>
+          </div>
+
+          {/* Toolbar */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar nome ou telefone..." className="pl-9" />
+            </div>
+            <Select value={filtroDestino || "all"} onValueChange={v => setFiltroDestino(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Destino" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos destinos</SelectItem>
+                {destinosDisponiveis.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={abrirNovoCliente} className="bg-gradient-gold text-primary-foreground">
+              <UserPlus className="h-4 w-4 mr-1.5" /> Novo cliente
+            </Button>
+          </div>
+
+          {/* Listas inteligentes */}
+          {(listas.prontosRevenda.length > 0 || listas.semResposta.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {listas.prontosRevenda.length > 0 && (
+                <Card className="glass-card p-3 border-l-4 border-l-primary">
+                  <p className="text-xs font-semibold flex items-center gap-1.5 mb-2"><Repeat className="h-3.5 w-3.5 text-primary" /> Oportunidades de revenda ({listas.prontosRevenda.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {listas.prontosRevenda.slice(0, 6).map(l => (
+                      <button key={l.id} onClick={() => editarCliente(l)} className="text-[11px] px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20">{l.nome}</button>
+                    ))}
+                  </div>
+                </Card>
+              )}
+              {listas.semResposta.length > 0 && (
+                <Card className="glass-card p-3 border-l-4 border-l-warning">
+                  <p className="text-xs font-semibold flex items-center gap-1.5 mb-2"><AlertCircle className="h-3.5 w-3.5 text-warning" /> Sem resposta há 3+ dias ({listas.semResposta.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {listas.semResposta.slice(0, 6).map(l => (
+                      <button key={l.id} onClick={() => openWhats(l.whatsapp || l.telefone)} className="text-[11px] px-2 py-1 rounded-full bg-warning/10 text-warning hover:bg-warning/20">{l.nome}</button>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Kanban de atendimento */}
+          <div className="overflow-x-auto pb-4 scrollbar-thin">
+            <div className="flex gap-3 min-w-max">
+              {kanbanCols.map(col => {
+                const cards = leadsFiltrados.filter(l => ((l as any).kanban_status || "nao_atendido") === col.key);
+                return (
+                  <div
+                    key={col.key}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => { if (draggingId) { moverKanban(draggingId, col.key); setDraggingId(null); } }}
+                    className={`w-[280px] shrink-0 rounded-xl bg-card-elevated/20 border border-border/40 border-t-2 ${col.ring} p-3 flex flex-col max-h-[70vh]`}
+                  >
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <h3 className="font-display font-semibold text-sm flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.hex }}></span>
+                        {col.title}
+                      </h3>
+                      <Badge variant="secondary" className="text-xs bg-background/50">{cards.length}</Badge>
+                    </div>
+                    <div className="space-y-2 overflow-y-auto pr-1 flex-1 scrollbar-thin">
+                      {cards.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground/60 text-center py-6 border border-dashed border-border/50 rounded-lg">Vazio</p>
+                      )}
+                      {cards.map(c => {
+                        const ult = (c as any).ultima_interacao;
+                        const ultMsg = (c as any).ultima_mensagem;
+                        return (
+                          <Card
+                            key={c.id}
+                            draggable
+                            onDragStart={() => setDraggingId(c.id)}
+                            onDragEnd={() => setDraggingId(null)}
+                            className="glass-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all group"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-semibold text-sm leading-tight truncate">{c.nome}</p>
+                              <button onClick={() => editarCliente(c)} className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-primary">
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            {(c.whatsapp || c.telefone) && (
+                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1"><Phone className="h-2.5 w-2.5" /> {c.whatsapp || c.telefone}</p>
+                            )}
+                            {c.destino && (
+                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1"><MapPin className="h-2.5 w-2.5" /> {c.destino}</p>
+                            )}
+                            {ultMsg && (
+                              <p className="text-[11px] italic text-foreground/70 mt-1 line-clamp-2">"{ultMsg}"</p>
+                            )}
+                            {ult && (
+                              <p className="text-[10px] text-muted-foreground mt-1">{format(parseISO(ult), "dd/MM HH:mm")}</p>
+                            )}
+                            <div className="flex gap-1 mt-2 pt-2 border-t border-border/40">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-success hover:bg-success/10" onClick={() => openWhats(c.whatsapp || c.telefone)} title="WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={() => abrirEmbarque(c)} title="Novo embarque"><Bus className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-accent/10" onClick={() => abrirHistorico(c)} title="Histórico"><Users className="h-3.5 w-3.5" /></Button>
+                              <Select value={(c as any).kanban_status || "nao_atendido"} onValueChange={(v) => moverKanban(c.id, v as KanbanStatus)}>
+                                <SelectTrigger className="h-7 ml-auto text-[10px] w-auto px-2 border-border/50"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {kanbanCols.map(k => <SelectItem key={k.key} value={k.key} className="text-xs">{k.title}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="cockpit" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -556,6 +912,91 @@ export default function CRM() {
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar tarefa"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Cliente */}
+      <Dialog open={clienteDialog} onOpenChange={setClienteDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>{editingLead ? "Editar cliente" : "Novo cliente"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Nome *</Label><Input value={cNome} onChange={e => setCNome(e.target.value)} /></div>
+              <div><Label className="text-xs">Cidade</Label><Input value={cCidade} onChange={e => setCCidade(e.target.value)} /></div>
+              <div><Label className="text-xs">Telefone</Label><Input value={cTelefone} onChange={e => setCTelefone(e.target.value)} /></div>
+              <div><Label className="text-xs">WhatsApp</Label><Input value={cWhats} onChange={e => setCWhats(e.target.value)} /></div>
+              <div><Label className="text-xs">Destino</Label><Input value={cDestino} onChange={e => setCDestino(e.target.value)} /></div>
+              <div>
+                <Label className="text-xs">Status (Kanban)</Label>
+                <Select value={cKanban} onValueChange={(v: any) => setCKanban(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {kanbanCols.map(k => <SelectItem key={k.key} value={k.key}>{k.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div><Label className="text-xs">Última mensagem</Label><Input value={cUltimaMsg} onChange={e => setCUltimaMsg(e.target.value)} placeholder="Ex: Cliente pediu cotação para sábado" /></div>
+            <div><Label className="text-xs">Observações</Label><Textarea value={cObs} onChange={e => setCObs(e.target.value)} rows={2} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setClienteDialog(false)}>Cancelar</Button>
+            <Button onClick={salvarCliente} disabled={saving} className="bg-gradient-gold text-primary-foreground">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Embarque */}
+      <Dialog open={embDialog} onOpenChange={setEmbDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Novo embarque</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-xs">Cliente</Label><Input value={embCliente} onChange={e => setEmbCliente(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Destino</Label><Input value={embDestino} onChange={e => setEmbDestino(e.target.value)} /></div>
+              <div><Label className="text-xs">Local de embarque</Label><Input value={embLocal} onChange={e => setEmbLocal(e.target.value)} /></div>
+              <div><Label className="text-xs">Data da ida</Label><Input type="date" value={embData} onChange={e => setEmbData(e.target.value)} /></div>
+              <div><Label className="text-xs">Hora</Label><Input type="time" value={embHora} onChange={e => setEmbHora(e.target.value)} /></div>
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={embStatus} onValueChange={(v: any) => setEmbStatus(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Agendado</SelectItem>
+                    <SelectItem value="em_andamento">Embarcado</SelectItem>
+                    <SelectItem value="concluido">Finalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Dias para retorno</Label><Input type="number" min={0} value={embDias} onChange={e => setEmbDias(Number(e.target.value))} /></div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEmbDialog(false)}>Cancelar</Button>
+            <Button onClick={salvarEmbarque} disabled={saving} className="bg-gradient-gold text-primary-foreground">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cadastrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Histórico */}
+      <Dialog open={histDialog} onOpenChange={setHistDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Histórico — {histLead?.nome}</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {histEmbarques.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">Nenhum embarque registrado.</p>
+            ) : histEmbarques.map(e => (
+              <div key={e.id} className="p-3 rounded-lg border border-border/40 bg-card-elevated/30 text-sm">
+                <div className="flex justify-between"><span className="font-semibold">{e.cidade_destino || e.rota}</span><Badge variant="outline">{e.status}</Badge></div>
+                <p className="text-xs text-muted-foreground mt-1">{e.data_operacao} {e.hora_saida_prevista || ""}</p>
+                {e.observacao && <p className="text-xs mt-1">{e.observacao}</p>}
+              </div>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
