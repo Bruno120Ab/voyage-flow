@@ -284,6 +284,7 @@ export default function CRM() {
     setHistDialog(true);
   };
 
+  const tarefasFiltradas = useMemo(() => {
     const hoje = new Date().toISOString().slice(0, 10);
     let list = tarefas;
     if (filtroTarefas === "hoje") list = tarefas.filter(t => t.data === hoje && t.status !== "concluida" && t.status !== "cancelada");
