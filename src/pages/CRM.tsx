@@ -72,6 +72,39 @@ export default function CRM() {
   const [filtroTarefas, setFiltroTarefas] = useState<"hoje" | "todas" | "concluidas">("hoje");
   const [saving, setSaving] = useState(false);
 
+  // === Kanban de atendimento ===
+  const [busca, setBusca] = useState("");
+  const [filtroDestino, setFiltroDestino] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  // Cliente dialog
+  const [clienteDialog, setClienteDialog] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [cNome, setCNome] = useState("");
+  const [cTelefone, setCTelefone] = useState("");
+  const [cWhats, setCWhats] = useState("");
+  const [cCidade, setCCidade] = useState("");
+  const [cDestino, setCDestino] = useState("");
+  const [cObs, setCObs] = useState("");
+  const [cUltimaMsg, setCUltimaMsg] = useState("");
+  const [cKanban, setCKanban] = useState<KanbanStatus>("nao_atendido");
+
+  // Embarque dialog
+  const [embDialog, setEmbDialog] = useState(false);
+  const [embLeadId, setEmbLeadId] = useState<string | null>(null);
+  const [embCliente, setEmbCliente] = useState("");
+  const [embDestino, setEmbDestino] = useState("");
+  const [embData, setEmbData] = useState(new Date().toISOString().slice(0, 10));
+  const [embHora, setEmbHora] = useState("");
+  const [embLocal, setEmbLocal] = useState("");
+  const [embStatus, setEmbStatus] = useState<"pendente" | "em_andamento" | "concluido">("pendente");
+  const [embDias, setEmbDias] = useState<number>(7);
+
+  // Histórico
+  const [histDialog, setHistDialog] = useState(false);
+  const [histLead, setHistLead] = useState<Lead | null>(null);
+  const [histEmbarques, setHistEmbarques] = useState<EmbarqueDia[]>([]);
+
   useEffect(() => {
     const loadLeads = async () => {
       const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
