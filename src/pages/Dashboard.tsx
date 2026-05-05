@@ -269,6 +269,97 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Meta de Entregas */}
+        <Card className="glass-card p-6 border-l-4 border-l-primary">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="font-display font-semibold text-lg flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" /> Meta de Entregas
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Comissão acumulada no mês</p>
+            </div>
+            <Target className="h-5 w-5 text-primary/60" />
+          </div>
+          {(() => {
+            const pct = Math.min(100, (stats.entregasComissaoMes / stats.entregasMetaMes) * 100);
+            return (
+              <>
+                <div className="flex items-end justify-between mb-2">
+                  <p className="font-display text-3xl font-bold text-gradient-gold">
+                    R$ {stats.entregasComissaoMes.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    de <span className="font-semibold text-foreground">R$ {stats.entregasMetaMes.toLocaleString("pt-BR")}</span>
+                  </p>
+                </div>
+                <Progress value={pct} className="h-2" />
+                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                  <div className="p-2 rounded-lg bg-card-elevated/60 border border-border/40">
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Progresso</p>
+                    <p className="font-display font-bold text-lg">{pct.toFixed(0)}%</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-card-elevated/60 border border-border/40">
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Enviadas</p>
+                    <p className="font-display font-bold text-lg">{stats.entregasEnviadasMes}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-card-elevated/60 border border-border/40">
+                    <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Recebidas</p>
+                    <p className="font-display font-bold text-lg">{stats.entregasRecebidasMes}</p>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </Card>
+
+        {/* Agenda do dia */}
+        <Card className="glass-card p-6 border-l-4 border-l-warning">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="font-display font-semibold text-lg flex items-center gap-2">
+                <ListTodo className="h-5 w-5 text-warning" /> Minha Agenda — Hoje
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {stats.tarefasHoje.filter((t: any) => t.status !== "concluida").length} pendentes • {stats.tarefasHoje.filter((t: any) => t.status === "concluida").length} concluídas
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => window.location.href = "/crm"}>Abrir CRM</Button>
+          </div>
+          <div className="space-y-2 max-h-[260px] overflow-y-auto scrollbar-thin pr-1">
+            {stats.tarefasHoje.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                Nenhuma tarefa para hoje.
+              </div>
+            ) : (
+              stats.tarefasHoje.map((t: any) => {
+                const done = t.status === "concluida";
+                const prio = t.prioridade;
+                const prioColor =
+                  prio === "urgente" ? "bg-destructive/15 text-destructive border-destructive/30" :
+                  prio === "alta" ? "bg-warning/15 text-warning border-warning/30" :
+                  prio === "baixa" ? "bg-muted text-muted-foreground border-border" :
+                  "bg-primary/10 text-primary border-primary/20";
+                return (
+                  <div key={t.id} className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${done ? "bg-success/5 border-success/20 opacity-60" : "bg-card-elevated/60 border-border/40 hover:border-primary/40"}`}>
+                    <CheckCircle2 className={`h-4 w-4 mt-0.5 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${done ? "line-through" : ""}`}>{t.titulo}</p>
+                      {t.descricao && <p className="text-xs text-muted-foreground truncate mt-0.5">{t.descricao}</p>}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {t.hora && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{t.hora.slice(0,5)}</span>}
+                        <Badge variant="outline" className={`text-[10px] py-0 px-1.5 h-4 ${prioColor}`}>{prio}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Card>
+      </div>
+
       <div>
         <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Bus className="h-5 w-5 text-primary" /> Monitor de Frotas — Hoje</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
