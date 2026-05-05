@@ -34,6 +34,11 @@ interface DashboardStats {
   proxDescendo: any;
   atrasadosSubindo: number;
   atrasadosDescendo: number;
+  entregasComissaoMes: number;
+  entregasMetaMes: number;
+  entregasEnviadasMes: number;
+  entregasRecebidasMes: number;
+  tarefasHoje: any[];
 }
 
 export default function Dashboard() {
