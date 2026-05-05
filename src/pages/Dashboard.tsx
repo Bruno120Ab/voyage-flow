@@ -51,14 +51,18 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
       const now = new Date().toISOString();
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
       
-      const [embMonth, embFuture, pax, lds, veics, embDiaResp] = await Promise.all([
+      const monthStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+      const today = new Date().toISOString().slice(0, 10);
+
+      const [embMonth, embFuture, pax, lds, veics, embDiaResp, entregasResp, tarefasResp] = await Promise.all([
         supabase.from("embarques").select("valor_operacao, custo_operacao").gte("data_saida", monthStart),
         supabase.from("embarques").select("*, veiculos(placa)").gte("data_saida", now).order("data_saida").limit(5),
         supabase.from("passageiros").select("id, ticket_medio, tag, ultima_viagem, total_viagens"),
         supabase.from("leads").select("id, valor_estimado, etapa"),
         supabase.from("veiculos").select("id, status"),
-        supabase.from("embarques_dia").select("*")
-        // .eq("data_operacao", new Date().toISOString().slice(0, 10)),
+        supabase.from("embarques_dia").select("*"),
+        supabase.from("entregas").select("tipo, comissao, data_operacao").gte("data_operacao", monthStartDate),
+        supabase.from("tarefas").select("*").eq("data", today).order("hora", { ascending: true }),
       ]);
 
       // Financeiro
