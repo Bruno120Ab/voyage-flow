@@ -144,6 +144,14 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
       const sUp = computeDir(subindo);
       const sDown = computeDir(descendo);
 
+
+      // Entregas do mês
+      const entregasData = entregasResp.data ?? [];
+      const entregasComissaoMes = entregasData.reduce((s: number, e: any) => s + Number(e.comissao || 0), 0);
+      const entregasEnviadasMes = entregasData.filter((e: any) => e.tipo === "enviada").length;
+      const entregasRecebidasMes = entregasData.filter((e: any) => e.tipo === "recebida").length;
+      const entregasMetaMes = 100;
+
       setStats({
         faturamentoMes, custoMes, lucroMes, comissaoEstimada,
         valorEmNegociacao, comissaoPotencial, leadsAtivos: leadsAtivos.length,
@@ -154,6 +162,8 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
         subindo, descendo,
         proxSubindo: sUp.prox, proxDescendo: sDown.prox,
         atrasadosSubindo: sUp.atrasados, atrasadosDescendo: sDown.atrasados,
+        entregasComissaoMes, entregasMetaMes, entregasEnviadasMes, entregasRecebidasMes,
+        tarefasHoje: tarefasResp.data ?? [],
       });
     };
     load();
