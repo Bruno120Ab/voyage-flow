@@ -254,7 +254,9 @@ export default function CRM() {
     if (!embCliente.trim() || !embDestino.trim()) { toast.error("Cliente e destino obrigatórios"); return; }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("embarques_dia").insert({
+
+    // 1) Cria registro operacional do dia (Atendimento/Agenda)
+    const { error: errDia } = await supabase.from("embarques_dia").insert({
       lead_id: embLeadId,
       cliente_nome: embCliente.trim(),
       cidade_origem: embLocal.trim() || null,
@@ -270,9 +272,45 @@ export default function CRM() {
       status: embStatus,
       created_by: user?.id,
     } as any);
+    if (errDia) { setSaving(false); toast.error(errDia.message); return; }
+
+    // 2) Cria embarque na aba Embarques (tabela principal)
+    const statusMap: Record<string, string> = {
+      pendente: "rascunho",
+      em_andamento: "em_rota",
+      concluido: "finalizado",
+    };
+    const dataSaida = new Date(`${embData}T${embHora || "00:00"}:00`).toISOString();
+    const obsJson = JSON.stringify({
+      isJsonMeta: true,
+      observacoes: `Gerado pelo CRM — Cliente: ${embCliente.trim()}${embLeadId ? ` (lead ${embLeadId})` : ""}`,
+      rota: "nenhuma",
+    });
+    const { error: errEmb } = await supabase.from("embarques").insert({
+      origem: embLocal.trim() || "—",
+      destino: embDestino.trim(),
+      local_embarque: embLocal.trim() || null,
+      data_saida: dataSaida,
+      valor_operacao: 0,
+      custo_operacao: 0,
+      status: statusMap[embStatus] as any,
+      observacoes: obsJson,
+      created_by: user?.id,
+    } as any);
+
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Embarque cadastrado");
+    if (errEmb) { toast.error("Embarque do dia salvo, mas falhou na aba Embarques: " + errEmb.message); return; }
+
+    // Atualiza interação do lead
+    if (embLeadId) {
+      await supabase.from("leads").update({
+        ultima_interacao: new Date().toISOString(),
+        ultima_mensagem: `Embarque agendado para ${embDestino} em ${embData}`,
+        kanban_status: "venda",
+      } as any).eq("id", embLeadId);
+    }
+
+    toast.success("Embarque cadastrado e enviado para a aba Embarques");
     setEmbDialog(false);
   };
 
