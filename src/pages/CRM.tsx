@@ -89,16 +89,20 @@ export default function CRM() {
   const [cUltimaMsg, setCUltimaMsg] = useState("");
   const [cKanban, setCKanban] = useState<KanbanStatus>("nao_atendido");
 
-  // Embarque dialog
+  // Embarque dialog (mesmos campos da aba Embarques)
+  type EStatus = "rascunho" | "confirmado" | "pendente" | "em_rota" | "finalizado" | "cancelado";
   const [embDialog, setEmbDialog] = useState(false);
   const [embLeadId, setEmbLeadId] = useState<string | null>(null);
-  const [embCliente, setEmbCliente] = useState("");
-  const [embDestino, setEmbDestino] = useState("");
-  const [embData, setEmbData] = useState(new Date().toISOString().slice(0, 10));
-  const [embHora, setEmbHora] = useState("");
-  const [embLocal, setEmbLocal] = useState("");
-  const [embStatus, setEmbStatus] = useState<"pendente" | "em_andamento" | "concluido">("pendente");
-  const [embDias, setEmbDias] = useState<number>(7);
+  const [veiculos, setVeiculos] = useState<{ id: string; placa: string; modelo: string }[]>([]);
+  const [servicos, setServicos] = useState<any[]>([]);
+  const [embForm, setEmbForm] = useState({
+    origem: "", destino: "", local_embarque: "",
+    data_saida: "", data_retorno: "",
+    valor_operacao: "0", custo_operacao: "0",
+    veiculo_id: "none", servico_id: "none",
+    status: "rascunho" as EStatus, observacoes: "",
+    rota: "nenhuma" as "descida" | "subida" | "nenhuma",
+  });
 
   // Histórico
   const [histDialog, setHistDialog] = useState(false);
