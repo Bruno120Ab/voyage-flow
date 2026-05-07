@@ -124,8 +124,17 @@ export default function CRM() {
       setTarefas((data ?? []) as Tarefa[]);
     };
 
+    const loadVeiculos = async () => {
+      const { data } = await supabase.from("veiculos").select("id, placa, modelo").order("placa");
+      setVeiculos((data ?? []) as any);
+    };
+    const loadServicos = async () => {
+      const { data } = await supabase.from("embarques_dia").select("id, servico, rota, carro, data_operacao").order("data_operacao", { ascending: false });
+      setServicos(data ?? []);
+    };
+
     const init = async () => {
-      await Promise.all([loadLeads(), loadEmbarques(), loadTarefas()]);
+      await Promise.all([loadLeads(), loadEmbarques(), loadTarefas(), loadVeiculos(), loadServicos()]);
       setLoading(false);
     };
     init();
