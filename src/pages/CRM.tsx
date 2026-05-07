@@ -994,37 +994,71 @@ export default function CRM() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Embarque */}
+      {/* Dialog Embarque — mesmos campos da aba Embarques */}
       <Dialog open={embDialog} onOpenChange={setEmbDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Novo embarque</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label className="text-xs">Cliente</Label><Input value={embCliente} onChange={e => setEmbCliente(e.target.value)} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Destino</Label><Input value={embDestino} onChange={e => setEmbDestino(e.target.value)} /></div>
-              <div><Label className="text-xs">Local de embarque</Label><Input value={embLocal} onChange={e => setEmbLocal(e.target.value)} /></div>
-              <div><Label className="text-xs">Data da ida</Label><Input type="date" value={embData} onChange={e => setEmbData(e.target.value)} /></div>
-              <div><Label className="text-xs">Hora</Label><Input type="time" value={embHora} onChange={e => setEmbHora(e.target.value)} /></div>
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="font-display text-xl">Novo embarque</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Origem</Label><Input value={embForm.origem} onChange={e => setEmbForm(f => ({ ...f, origem: e.target.value }))} placeholder="São Paulo" /></div>
+                <div><Label>Destino</Label><Input value={embForm.destino} onChange={e => setEmbForm(f => ({ ...f, destino: e.target.value }))} placeholder="Foz do Iguaçu" /></div>
+              </div>
+              <div><Label>Local de embarque</Label><Input value={embForm.local_embarque} onChange={e => setEmbForm(f => ({ ...f, local_embarque: e.target.value }))} placeholder="Terminal Tietê - Plataforma 12" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Saída</Label><Input type="datetime-local" value={embForm.data_saida} onChange={e => setEmbForm(f => ({ ...f, data_saida: e.target.value }))} /></div>
+                <div><Label>Retorno</Label><Input type="datetime-local" value={embForm.data_retorno} onChange={e => setEmbForm(f => ({ ...f, data_retorno: e.target.value }))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={embForm.valor_operacao} onChange={e => setEmbForm(f => ({ ...f, valor_operacao: e.target.value }))} /></div>
+                <div><Label>Custo (R$)</Label><Input type="number" step="0.01" value={embForm.custo_operacao} onChange={e => setEmbForm(f => ({ ...f, custo_operacao: e.target.value }))} /></div>
+              </div>
+            </div>
+            <div className="space-y-3">
               <div>
-                <Label className="text-xs">Status</Label>
-                <Select value={embStatus} onValueChange={(v: any) => setEmbStatus(v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label>Serviço / Frota escalada</Label>
+                <Select value={embForm.servico_id} onValueChange={(v) => setEmbForm(f => ({ ...f, servico_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar serviço" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pendente">Agendado</SelectItem>
-                    <SelectItem value="em_andamento">Embarcado</SelectItem>
-                    <SelectItem value="concluido">Finalizado</SelectItem>
+                    <SelectItem value="none">Nenhum serviço definido ainda</SelectItem>
+                    {servicos.map(s => {
+                      const dateStr = s.data_operacao ? new Date(s.data_operacao).toLocaleDateString("pt-BR") : "";
+                      return <SelectItem key={s.id} value={s.id}>Serviço #{s.servico} — {(s.rota || "").split(" → ")[1] || s.rota} ({dateStr})</SelectItem>;
+                    })}
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs">Dias para retorno</Label><Input type="number" min={0} value={embDias} onChange={e => setEmbDias(Number(e.target.value))} /></div>
+              <div>
+                <Label>Sentido Padrão (Rota)</Label>
+                <Select value={embForm.rota} onValueChange={(v: any) => setEmbForm(f => ({ ...f, rota: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nenhuma">Não definido</SelectItem>
+                    <SelectItem value="descida">Descida (Litoral - Ilhéus/Porto Seguro)</SelectItem>
+                    <SelectItem value="subida">Subida (Sudoeste - Conquista/Itapetinga)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={embForm.status} onValueChange={(v: EStatus) => setEmbForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rascunho">Rascunho</SelectItem>
+                    <SelectItem value="confirmado">Confirmado</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="em_rota">Em rota</SelectItem>
+                    <SelectItem value="finalizado">Finalizado</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Observações</Label><Textarea value={embForm.observacoes} onChange={e => setEmbForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} /></div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEmbDialog(false)}>Cancelar</Button>
-            <Button onClick={salvarEmbarque} disabled={saving} className="bg-gradient-gold text-primary-foreground">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cadastrar"}
-            </Button>
-          </DialogFooter>
+          <Button onClick={salvarEmbarque} disabled={saving} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 mt-2">
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar embarque
+          </Button>
         </DialogContent>
       </Dialog>
 
