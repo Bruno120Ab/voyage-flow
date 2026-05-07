@@ -250,83 +250,75 @@ export default function CRM() {
     if (error) toast.error(error.message);
   };
 
-  // === Embarque vinculado ao cliente ===
+  // === Embarque vinculado ao cliente (mesmos campos da aba Embarques) ===
   const abrirEmbarque = (l: Lead) => {
     setEmbLeadId(l.id);
-    setEmbCliente(l.nome);
-    setEmbDestino(l.destino || "");
-    setEmbData(new Date().toISOString().slice(0, 10));
-    setEmbHora("");
-    setEmbLocal(l.cidade || "");
-    setEmbStatus("pendente");
-    setEmbDias(7);
+    setEmbForm({
+      origem: l.cidade || "",
+      destino: l.destino || "",
+      local_embarque: "",
+      data_saida: "",
+      data_retorno: "",
+      valor_operacao: String(l.valor_estimado || 0),
+      custo_operacao: "0",
+      veiculo_id: "none",
+      servico_id: "none",
+      status: "rascunho",
+      observacoes: `Cliente: ${l.nome}${l.telefone ? ` — ${l.telefone}` : ""}`,
+      rota: "nenhuma",
+    });
     setEmbDialog(true);
   };
 
   const salvarEmbarque = async () => {
-    if (!embCliente.trim() || !embDestino.trim()) { toast.error("Cliente e destino obrigatórios"); return; }
+    if (!embForm.origem.trim() || !embForm.destino.trim()) { toast.error("Origem e destino obrigatórios"); return; }
+    if (!embForm.data_saida) { toast.error("Informe a data de saída"); return; }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    // embarques_dia só aceita pendente|concluido — em_andamento entra como pendente
-    const statusDia = embStatus === "concluido" ? "concluido" : "pendente";
+    let resolvedVeiculoId = embForm.veiculo_id !== "none" ? embForm.veiculo_id : null;
+    if (embForm.servico_id !== "none") {
+      const s = servicos.find(x => x.id === embForm.servico_id);
+      if (s?.carro) {
+        const v = veiculos.find(v => v.placa === s.carro);
+        if (v) resolvedVeiculoId = v.id;
+      }
+    }
 
-    // 1) Cria registro operacional do dia (Atendimento/Agenda)
-    const { error: errDia } = await supabase.from("embarques_dia").insert({
-      lead_id: embLeadId,
-      cliente_nome: embCliente.trim(),
-      cidade_origem: embLocal.trim() || null,
-      cidade_destino: embDestino.trim(),
-      local_embarque: embLocal.trim() || null,
-      data_operacao: embData,
-      data_ida: embData,
-      hora_saida_prevista: embHora || null,
-      dias_para_retorno: embDias,
-      rota: `${embLocal || "—"} → ${embDestino}`,
-      servico: `WEB-${Date.now().toString().slice(-5)}`,
-      sentido: "ida",
-      status: statusDia,
-      created_by: user?.id,
-    } as any);
-    if (errDia) { setSaving(false); toast.error(errDia.message); return; }
-
-    // 2) Cria embarque na aba Embarques (tabela principal)
-    const statusMap: Record<string, string> = {
-      pendente: "rascunho",
-      em_andamento: "em_rota",
-      concluido: "finalizado",
-    };
-    const dataSaida = new Date(`${embData}T${embHora || "00:00"}:00`).toISOString();
     const obsJson = JSON.stringify({
       isJsonMeta: true,
-      observacoes: `Gerado pelo CRM — Cliente: ${embCliente.trim()}${embLeadId ? ` (lead ${embLeadId})` : ""}`,
-      rota: "nenhuma",
+      observacoes: embForm.observacoes,
+      rota: embForm.rota,
+      servico_id: embForm.servico_id !== "none" ? embForm.servico_id : undefined,
+      lead_id: embLeadId || undefined,
     });
-    const { error: errEmb } = await supabase.from("embarques").insert({
-      origem: embLocal.trim() || "—",
-      destino: embDestino.trim(),
-      local_embarque: embLocal.trim() || null,
-      data_saida: dataSaida,
-      valor_operacao: 0,
-      custo_operacao: 0,
-      status: statusMap[embStatus] as any,
+
+    const { error } = await supabase.from("embarques").insert({
+      origem: embForm.origem.trim(),
+      destino: embForm.destino.trim(),
+      local_embarque: embForm.local_embarque.trim() || null,
+      data_saida: new Date(embForm.data_saida).toISOString(),
+      data_retorno: embForm.data_retorno ? new Date(embForm.data_retorno).toISOString() : null,
+      valor_operacao: Number(embForm.valor_operacao) || 0,
+      custo_operacao: Number(embForm.custo_operacao) || 0,
+      veiculo_id: resolvedVeiculoId,
+      status: embForm.status,
       observacoes: obsJson,
       created_by: user?.id,
     } as any);
 
     setSaving(false);
-    if (errEmb) { toast.error("Embarque do dia salvo, mas falhou na aba Embarques: " + errEmb.message); return; }
+    if (error) { toast.error(error.message); return; }
 
-    // Atualiza interação do lead
     if (embLeadId) {
       await supabase.from("leads").update({
         ultima_interacao: new Date().toISOString(),
-        ultima_mensagem: `Embarque agendado para ${embDestino} em ${embData}`,
+        ultima_mensagem: `Embarque ${embForm.origem} → ${embForm.destino} em ${embForm.data_saida.slice(0,10)}`,
         kanban_status: "venda",
       } as any).eq("id", embLeadId);
     }
 
-    toast.success("Embarque cadastrado e enviado para a aba Embarques");
+    toast.success("Embarque cadastrado");
     setEmbDialog(false);
   };
 
