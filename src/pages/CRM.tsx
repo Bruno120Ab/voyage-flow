@@ -89,16 +89,20 @@ export default function CRM() {
   const [cUltimaMsg, setCUltimaMsg] = useState("");
   const [cKanban, setCKanban] = useState<KanbanStatus>("nao_atendido");
 
-  // Embarque dialog
+  // Embarque dialog (mesmos campos da aba Embarques)
+  type EStatus = "rascunho" | "confirmado" | "pendente" | "em_rota" | "finalizado" | "cancelado";
   const [embDialog, setEmbDialog] = useState(false);
   const [embLeadId, setEmbLeadId] = useState<string | null>(null);
-  const [embCliente, setEmbCliente] = useState("");
-  const [embDestino, setEmbDestino] = useState("");
-  const [embData, setEmbData] = useState(new Date().toISOString().slice(0, 10));
-  const [embHora, setEmbHora] = useState("");
-  const [embLocal, setEmbLocal] = useState("");
-  const [embStatus, setEmbStatus] = useState<"pendente" | "em_andamento" | "concluido">("pendente");
-  const [embDias, setEmbDias] = useState<number>(7);
+  const [veiculos, setVeiculos] = useState<{ id: string; placa: string; modelo: string }[]>([]);
+  const [servicos, setServicos] = useState<any[]>([]);
+  const [embForm, setEmbForm] = useState({
+    origem: "", destino: "", local_embarque: "",
+    data_saida: "", data_retorno: "",
+    valor_operacao: "0", custo_operacao: "0",
+    veiculo_id: "none", servico_id: "none",
+    status: "rascunho" as EStatus, observacoes: "",
+    rota: "nenhuma" as "descida" | "subida" | "nenhuma",
+  });
 
   // Histórico
   const [histDialog, setHistDialog] = useState(false);
@@ -120,8 +124,17 @@ export default function CRM() {
       setTarefas((data ?? []) as Tarefa[]);
     };
 
+    const loadVeiculos = async () => {
+      const { data } = await supabase.from("veiculos").select("id, placa, modelo").order("placa");
+      setVeiculos((data ?? []) as any);
+    };
+    const loadServicos = async () => {
+      const { data } = await supabase.from("embarques_dia").select("id, servico, rota, carro, data_operacao").order("data_operacao", { ascending: false });
+      setServicos(data ?? []);
+    };
+
     const init = async () => {
-      await Promise.all([loadLeads(), loadEmbarques(), loadTarefas()]);
+      await Promise.all([loadLeads(), loadEmbarques(), loadTarefas(), loadVeiculos(), loadServicos()]);
       setLoading(false);
     };
     init();
@@ -237,83 +250,75 @@ export default function CRM() {
     if (error) toast.error(error.message);
   };
 
-  // === Embarque vinculado ao cliente ===
+  // === Embarque vinculado ao cliente (mesmos campos da aba Embarques) ===
   const abrirEmbarque = (l: Lead) => {
     setEmbLeadId(l.id);
-    setEmbCliente(l.nome);
-    setEmbDestino(l.destino || "");
-    setEmbData(new Date().toISOString().slice(0, 10));
-    setEmbHora("");
-    setEmbLocal(l.cidade || "");
-    setEmbStatus("pendente");
-    setEmbDias(7);
+    setEmbForm({
+      origem: l.cidade || "",
+      destino: l.destino || "",
+      local_embarque: "",
+      data_saida: "",
+      data_retorno: "",
+      valor_operacao: String(l.valor_estimado || 0),
+      custo_operacao: "0",
+      veiculo_id: "none",
+      servico_id: "none",
+      status: "rascunho",
+      observacoes: `Cliente: ${l.nome}${l.telefone ? ` — ${l.telefone}` : ""}`,
+      rota: "nenhuma",
+    });
     setEmbDialog(true);
   };
 
   const salvarEmbarque = async () => {
-    if (!embCliente.trim() || !embDestino.trim()) { toast.error("Cliente e destino obrigatórios"); return; }
+    if (!embForm.origem.trim() || !embForm.destino.trim()) { toast.error("Origem e destino obrigatórios"); return; }
+    if (!embForm.data_saida) { toast.error("Informe a data de saída"); return; }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    // embarques_dia só aceita pendente|concluido — em_andamento entra como pendente
-    const statusDia = embStatus === "concluido" ? "concluido" : "pendente";
+    let resolvedVeiculoId = embForm.veiculo_id !== "none" ? embForm.veiculo_id : null;
+    if (embForm.servico_id !== "none") {
+      const s = servicos.find(x => x.id === embForm.servico_id);
+      if (s?.carro) {
+        const v = veiculos.find(v => v.placa === s.carro);
+        if (v) resolvedVeiculoId = v.id;
+      }
+    }
 
-    // 1) Cria registro operacional do dia (Atendimento/Agenda)
-    const { error: errDia } = await supabase.from("embarques_dia").insert({
-      lead_id: embLeadId,
-      cliente_nome: embCliente.trim(),
-      cidade_origem: embLocal.trim() || null,
-      cidade_destino: embDestino.trim(),
-      local_embarque: embLocal.trim() || null,
-      data_operacao: embData,
-      data_ida: embData,
-      hora_saida_prevista: embHora || null,
-      dias_para_retorno: embDias,
-      rota: `${embLocal || "—"} → ${embDestino}`,
-      servico: `WEB-${Date.now().toString().slice(-5)}`,
-      sentido: "ida",
-      status: statusDia,
-      created_by: user?.id,
-    } as any);
-    if (errDia) { setSaving(false); toast.error(errDia.message); return; }
-
-    // 2) Cria embarque na aba Embarques (tabela principal)
-    const statusMap: Record<string, string> = {
-      pendente: "rascunho",
-      em_andamento: "em_rota",
-      concluido: "finalizado",
-    };
-    const dataSaida = new Date(`${embData}T${embHora || "00:00"}:00`).toISOString();
     const obsJson = JSON.stringify({
       isJsonMeta: true,
-      observacoes: `Gerado pelo CRM — Cliente: ${embCliente.trim()}${embLeadId ? ` (lead ${embLeadId})` : ""}`,
-      rota: "nenhuma",
+      observacoes: embForm.observacoes,
+      rota: embForm.rota,
+      servico_id: embForm.servico_id !== "none" ? embForm.servico_id : undefined,
+      lead_id: embLeadId || undefined,
     });
-    const { error: errEmb } = await supabase.from("embarques").insert({
-      origem: embLocal.trim() || "—",
-      destino: embDestino.trim(),
-      local_embarque: embLocal.trim() || null,
-      data_saida: dataSaida,
-      valor_operacao: 0,
-      custo_operacao: 0,
-      status: statusMap[embStatus] as any,
+
+    const { error } = await supabase.from("embarques").insert({
+      origem: embForm.origem.trim(),
+      destino: embForm.destino.trim(),
+      local_embarque: embForm.local_embarque.trim() || null,
+      data_saida: new Date(embForm.data_saida).toISOString(),
+      data_retorno: embForm.data_retorno ? new Date(embForm.data_retorno).toISOString() : null,
+      valor_operacao: Number(embForm.valor_operacao) || 0,
+      custo_operacao: Number(embForm.custo_operacao) || 0,
+      veiculo_id: resolvedVeiculoId,
+      status: embForm.status,
       observacoes: obsJson,
       created_by: user?.id,
     } as any);
 
     setSaving(false);
-    if (errEmb) { toast.error("Embarque do dia salvo, mas falhou na aba Embarques: " + errEmb.message); return; }
+    if (error) { toast.error(error.message); return; }
 
-    // Atualiza interação do lead
     if (embLeadId) {
       await supabase.from("leads").update({
         ultima_interacao: new Date().toISOString(),
-        ultima_mensagem: `Embarque agendado para ${embDestino} em ${embData}`,
+        ultima_mensagem: `Embarque ${embForm.origem} → ${embForm.destino} em ${embForm.data_saida.slice(0,10)}`,
         kanban_status: "venda",
       } as any).eq("id", embLeadId);
     }
 
-    toast.success("Embarque cadastrado e enviado para a aba Embarques");
+    toast.success("Embarque cadastrado");
     setEmbDialog(false);
   };
 
@@ -989,37 +994,71 @@ export default function CRM() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Embarque */}
+      {/* Dialog Embarque — mesmos campos da aba Embarques */}
       <Dialog open={embDialog} onOpenChange={setEmbDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Novo embarque</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label className="text-xs">Cliente</Label><Input value={embCliente} onChange={e => setEmbCliente(e.target.value)} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Destino</Label><Input value={embDestino} onChange={e => setEmbDestino(e.target.value)} /></div>
-              <div><Label className="text-xs">Local de embarque</Label><Input value={embLocal} onChange={e => setEmbLocal(e.target.value)} /></div>
-              <div><Label className="text-xs">Data da ida</Label><Input type="date" value={embData} onChange={e => setEmbData(e.target.value)} /></div>
-              <div><Label className="text-xs">Hora</Label><Input type="time" value={embHora} onChange={e => setEmbHora(e.target.value)} /></div>
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="font-display text-xl">Novo embarque</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Origem</Label><Input value={embForm.origem} onChange={e => setEmbForm(f => ({ ...f, origem: e.target.value }))} placeholder="São Paulo" /></div>
+                <div><Label>Destino</Label><Input value={embForm.destino} onChange={e => setEmbForm(f => ({ ...f, destino: e.target.value }))} placeholder="Foz do Iguaçu" /></div>
+              </div>
+              <div><Label>Local de embarque</Label><Input value={embForm.local_embarque} onChange={e => setEmbForm(f => ({ ...f, local_embarque: e.target.value }))} placeholder="Terminal Tietê - Plataforma 12" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Saída</Label><Input type="datetime-local" value={embForm.data_saida} onChange={e => setEmbForm(f => ({ ...f, data_saida: e.target.value }))} /></div>
+                <div><Label>Retorno</Label><Input type="datetime-local" value={embForm.data_retorno} onChange={e => setEmbForm(f => ({ ...f, data_retorno: e.target.value }))} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={embForm.valor_operacao} onChange={e => setEmbForm(f => ({ ...f, valor_operacao: e.target.value }))} /></div>
+                <div><Label>Custo (R$)</Label><Input type="number" step="0.01" value={embForm.custo_operacao} onChange={e => setEmbForm(f => ({ ...f, custo_operacao: e.target.value }))} /></div>
+              </div>
+            </div>
+            <div className="space-y-3">
               <div>
-                <Label className="text-xs">Status</Label>
-                <Select value={embStatus} onValueChange={(v: any) => setEmbStatus(v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label>Serviço / Frota escalada</Label>
+                <Select value={embForm.servico_id} onValueChange={(v) => setEmbForm(f => ({ ...f, servico_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar serviço" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pendente">Agendado</SelectItem>
-                    <SelectItem value="em_andamento">Embarcado</SelectItem>
-                    <SelectItem value="concluido">Finalizado</SelectItem>
+                    <SelectItem value="none">Nenhum serviço definido ainda</SelectItem>
+                    {servicos.map(s => {
+                      const dateStr = s.data_operacao ? new Date(s.data_operacao).toLocaleDateString("pt-BR") : "";
+                      return <SelectItem key={s.id} value={s.id}>Serviço #{s.servico} — {(s.rota || "").split(" → ")[1] || s.rota} ({dateStr})</SelectItem>;
+                    })}
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs">Dias para retorno</Label><Input type="number" min={0} value={embDias} onChange={e => setEmbDias(Number(e.target.value))} /></div>
+              <div>
+                <Label>Sentido Padrão (Rota)</Label>
+                <Select value={embForm.rota} onValueChange={(v: any) => setEmbForm(f => ({ ...f, rota: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nenhuma">Não definido</SelectItem>
+                    <SelectItem value="descida">Descida (Litoral - Ilhéus/Porto Seguro)</SelectItem>
+                    <SelectItem value="subida">Subida (Sudoeste - Conquista/Itapetinga)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={embForm.status} onValueChange={(v: EStatus) => setEmbForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rascunho">Rascunho</SelectItem>
+                    <SelectItem value="confirmado">Confirmado</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="em_rota">Em rota</SelectItem>
+                    <SelectItem value="finalizado">Finalizado</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label>Observações</Label><Textarea value={embForm.observacoes} onChange={e => setEmbForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} /></div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEmbDialog(false)}>Cancelar</Button>
-            <Button onClick={salvarEmbarque} disabled={saving} className="bg-gradient-gold text-primary-foreground">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cadastrar"}
-            </Button>
-          </DialogFooter>
+          <Button onClick={salvarEmbarque} disabled={saving} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 mt-2">
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar embarque
+          </Button>
         </DialogContent>
       </Dialog>
 
