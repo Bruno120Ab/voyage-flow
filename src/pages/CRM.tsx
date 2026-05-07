@@ -255,6 +255,9 @@ export default function CRM() {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
 
+    // embarques_dia só aceita pendente|concluido — em_andamento entra como pendente
+    const statusDia = embStatus === "concluido" ? "concluido" : "pendente";
+
     // 1) Cria registro operacional do dia (Atendimento/Agenda)
     const { error: errDia } = await supabase.from("embarques_dia").insert({
       lead_id: embLeadId,
@@ -269,7 +272,7 @@ export default function CRM() {
       rota: `${embLocal || "—"} → ${embDestino}`,
       servico: `WEB-${Date.now().toString().slice(-5)}`,
       sentido: "ida",
-      status: embStatus,
+      status: statusDia,
       created_by: user?.id,
     } as any);
     if (errDia) { setSaving(false); toast.error(errDia.message); return; }
