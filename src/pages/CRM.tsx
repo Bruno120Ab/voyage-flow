@@ -159,6 +159,8 @@ export default function CRM() {
 
   useEffect(() => {
     loadInbox();
+    const id = setInterval(loadInbox, 25000);
+    return () => clearInterval(id);
   }, []);
 
   const enviarRespostaInbox = async () => {
