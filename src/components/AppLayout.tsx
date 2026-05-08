@@ -3,14 +3,33 @@ import { AppSidebar } from "./AppSidebar";
 import { Bell, Search, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { getUnreadMessages } from "@/utils/sendZapApi";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const handleLogout = async () => { await signOut(); navigate("/auth"); };
+
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r: any = await getUnreadMessages();
+        const arr = Array.isArray(r) ? r
+          : Array.isArray(r?.messages) ? r.messages
+          : Array.isArray(r?.response) ? r.response
+          : Array.isArray(r?.data) ? r.data : [];
+        if (!cancelled) setUnread(arr.length);
+      } catch { /* silencioso */ }
+    };
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   return (
     <SidebarProvider>
