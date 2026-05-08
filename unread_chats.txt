@@ -1,0 +1,9 @@
+id: {"server":"g.us","user":"557798396689-1598962960","_serialized":"557798396689-1598962960@g.us"}, unread: 1, name: ⏰HORÁRIOS SERTÃO ii
+id: {"server":"lid","user":"51629869035584","_serialized":"51629869035584@lid"}, unread: 1, name: Bruno / Yasmin
+id: {"server":"lid","user":"236244776808642","_serialized":"236244776808642@lid"}, unread: 2, name: PS Raimundo
+id: {"server":"lid","user":"157195870187627","_serialized":"157195870187627@lid"}, unread: 1, name: undefined
+id: {"server":"lid","user":"215066410504192","_serialized":"215066410504192@lid"}, unread: 1, name: NH - Conferência Fixo
+id: {"server":"lid","user":"54026527891564","_serialized":"54026527891564@lid"}, unread: 1, name: undefined
+id: {"server":"lid","user":"105106641031329","_serialized":"105106641031329@lid"}, unread: 1, name: Marcos
+id: {"server":"lid","user":"204329143288049","_serialized":"204329143288049@lid"}, unread: 1, name: NH - SAC - Agentes
+id: {"server":"lid","user":"177708617175275","_serialized":"177708617175275@lid"}, unread: 1, name: PS - Josemir SP

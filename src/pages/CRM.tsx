@@ -123,13 +123,16 @@ export default function CRM() {
       const msgs = await getAllNewMessages();
       console.log(JSON.stringify(`A Mensagem é essa` + msgs));
       let arr = [];
-      if (Array.isArray(msgs)) arr = msgs;
+      if (msgs && Array.isArray(msgs.contacts)) arr = msgs.contacts; // Padrão da APIBrasil (retorna 'contacts')
+      else if (msgs && msgs.response && Array.isArray(msgs.response.contacts)) arr = msgs.response.contacts;
+      else if (Array.isArray(msgs)) arr = msgs;
       else if (msgs && Array.isArray(msgs.messages)) arr = msgs.messages;
       else if (msgs && Array.isArray(msgs.response)) arr = msgs.response;
       else if (msgs && Array.isArray(msgs.data)) arr = msgs.data;
-      else if (msgs && msgs.message && Array.isArray(msgs.message)) arr = msgs.message;
       
-      setInboxMessages(arr);
+      // Filtrar apenas conversas com isNewMsg === true ou não lidas (viewed === false)
+      const unread = arr.filter((c: any) => c.isNewMsg || c.unreadCount > 0 || c.viewed === false);
+      setInboxMessages(unread.length > 0 ? unread : arr);
     } catch (e) {
       toast.error("Erro ao carregar caixa de entrada");
     } finally {
@@ -167,7 +170,13 @@ export default function CRM() {
     if (!selectedChat || !replyText.trim()) return;
     setSaving(true);
     try {
-      await sendText({ number: selectedChat, text: replyText });
+      let numToSend = selectedChat;
+      if (!numToSend.includes("@")) {
+        numToSend = numToSend.replace(/\D/g, "");
+        if (!numToSend.startsWith("55") && numToSend.length <= 11) numToSend = "55" + numToSend;
+      }
+      
+      await sendText({ number: numToSend, text: replyText });
       toast.success("Mensagem enviada!");
       setReplyText("");
       await loadChat(selectedChat);
@@ -725,33 +734,95 @@ export default function CRM() {
                       })}
                       {/* Virtual Cards from Inbox */}
                       {col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.map((msg: any, i) => {
-                        const phone = msg.phone || msg.from;
-                        const name = msg.pushName || phone || "Novo Contato";
-                        const text = msg.text?.message || msg.body || msg.text || "Nova mensagem recebida...";
+                        const phone = msg.phone || msg.from || msg.id?.split('@')[0] || "Sem número";
+                        const cleanPhone = phone.includes('@') ? phone.split('@')[0] : phone;
+                        const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
+                        const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
+                        const time = msg.t ? new Date(msg.t * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";
+                        {console.log(phone)}
+                        
                         return (
                           <Card
                             key={`virtual_msg_${i}`}
                             className="glass-card p-3 border-l-4 border-l-destructive bg-destructive/5 hover:border-destructive/40 transition-all group"
                           >
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="font-semibold text-sm leading-tight truncate">{name} <span className="text-[10px] text-destructive">(ZAP)</span></p>
+                              <div className="flex flex-col min-w-0">
+                                <p className="font-semibold text-sm leading-tight truncate">{name} <span className="text-[10px] text-destructive">(ZAP)</span></p>
+                                {time && <span className="text-[10px] text-muted-foreground">{time}</span>}
+                              </div>
                               <button onClick={() => {
-                                setCNome(name === phone ? "" : name);
-                                setCTelefone(phone);
-                                setCWhats(phone);
+                                setCNome(name === cleanPhone ? "" : name);
+                                setCTelefone(cleanPhone);
+                                setCWhats(cleanPhone);
                                 setClienteDialog(true);
-                              }} title="Salvar como Lead" className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-primary">
+                              }} title="Salvar como Lead" className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-primary shrink-0">
                                 <Plus className="h-3.5 w-3.5" />
                               </button>
                             </div>
-                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1"><Phone className="h-2.5 w-2.5" /> {phone}</p>
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1"><Phone className="h-2.5 w-2.5" /> {cleanPhone}</p>
                             <p className="text-[11px] italic text-foreground/70 mt-1 line-clamp-2">"{text}"</p>
-                            <div className="flex gap-1 mt-2 pt-2 border-t border-border/40">
-                              <Button variant="ghost" size="sm" className="h-7 w-full text-xs text-primary bg-primary/10 hover:bg-primary/20" onClick={() => {
+                            <div className="flex gap-1 mt-2 pt-2 border-t border-border/40 items-center">
+                              <Input 
+                                placeholder="Responder rápida..." 
+                                className="h-7 text-[11px] px-2 flex-1"
+                                id={`reply_input_${cleanPhone}`}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter') {
+                                    const val = (e.target as HTMLInputElement).value;
+                                    if(!val.trim()) return;
+                                    
+                                    try {
+                                      toast.info("Enviando...");
+                                      let numToSend = phone;
+                                      if (!numToSend.includes("@")) {
+                                        numToSend = numToSend.replace(/\D/g, "");
+                                        if (!numToSend.startsWith("55") && numToSend.length <= 11) {
+                                          numToSend = "55" + numToSend;
+                                        }
+                                      }
+                                      await sendText({ number: numToSend, text: val });
+                                      
+                                      const existing = leads.find(l => (l.whatsapp === cleanPhone || l.telefone === cleanPhone));
+                                      if (existing) {
+                                        await supabase.from("leads").update({ 
+                                          kanban_status: "em_atendimento",
+                                          ultima_interacao: new Date().toISOString(),
+                                          ultima_mensagem: val
+                                        }).eq("id", existing.id);
+                                      } else {
+                                        await supabase.from("leads").insert({
+                                          nome: name,
+                                          telefone: cleanPhone,
+                                          whatsapp: cleanPhone,
+                                          kanban_status: "em_atendimento",
+                                          ultima_interacao: new Date().toISOString(),
+                                          ultima_mensagem: val
+                                        });
+                                      }
+                                      
+                                      toast.success("Enviado! Movido para Em Atendimento.");
+                                      (e.target as HTMLInputElement).value = "";
+                                      
+                                      const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+                                      if (data) setLeads(data as any[]);
+                                      
+                                      setInboxMessages(prev => prev.filter((m: any) => {
+                                         const p = m.phone || m.from || m.id?.split('@')[0] || "";
+                                         const cp = p.includes('@') ? p.split('@')[0] : p;
+                                         return cp !== cleanPhone;
+                                      }));
+                                    } catch(err) {
+                                      toast.error("Erro ao enviar");
+                                    }
+                                  }
+                                }}
+                              />
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary bg-primary/10 hover:bg-primary/20 shrink-0" title="Abrir Chat Completo" onClick={() => {
                                 setTab("inbox");
-                                loadChat(phone);
+                                loadChat(cleanPhone);
                               }}>
-                                <MessageCircle className="h-3.5 w-3.5 mr-1" /> Abrir Conversa
+                                <MessageCircle className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </Card>
@@ -1058,23 +1129,34 @@ export default function CRM() {
                     <p className="text-sm">Nenhuma mensagem nova</p>
                   </div>
                 ) : (
-                  Array.isArray(inboxMessages) && inboxMessages.map((msg: any, i) => (
-                    <div 
-                      key={i} 
-                      onClick={() => loadChat(msg.phone || msg.from)} 
-                      className={`p-4 border-b border-border/30 cursor-pointer transition-all hover:bg-primary/5 ${selectedChat === (msg.phone || msg.from) ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-gold text-primary-foreground flex items-center justify-center font-bold">
-                          <UserPlus className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">{msg.pushName || msg.phone || msg.from || "Desconhecido"}</p>
-                          <p className="text-xs text-muted-foreground truncate">{msg.text?.message || msg.body || msg.text || "Mensagem recebida..."}</p>
+                  Array.isArray(inboxMessages) && inboxMessages.map((msg: any, i) => {
+                    const phone = msg.phone || msg.from || msg.id?.split('@')[0] || "Sem número";
+                    const cleanPhone = phone.includes('@') ? phone.split('@')[0] : phone;
+                    const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
+                    const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
+                    const time = msg.t ? new Date(msg.t * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";
+                    
+                    return (
+                      <div 
+                        key={i} 
+                        onClick={() => loadChat(cleanPhone)} 
+                        className={`p-4 border-b border-border/30 cursor-pointer transition-all hover:bg-primary/5 ${selectedChat === cleanPhone ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-gradient-gold text-primary-foreground flex items-center justify-center font-bold">
+                            <UserPlus className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <p className="font-semibold text-sm truncate">{name}</p>
+                              {time && <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">{time}</span>}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{text}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
