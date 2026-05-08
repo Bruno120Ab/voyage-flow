@@ -11,6 +11,13 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      '/api-brasil': {
+        target: 'https://gateway.apibrasil.io',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-brasil/, '')
+      }
+    }
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

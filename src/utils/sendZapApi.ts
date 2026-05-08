@@ -14,7 +14,7 @@ const headers = {
 };
 
 export const sendText = async (message: WhatsAppMessage): Promise<any> => {
-  const url = 'https://gateway.apibrasil.io/api/v2/whatsapp/sendText';
+  const url = '/api-brasil/api/v2/whatsapp/sendText';
   try {
     // API Brasil V2 utiliza textMessage.text e options por padrão, ou pode aceitar text direto.
     // Vamos enviar o payload formatado corretamente para a V2:
@@ -39,7 +39,7 @@ export const sendText = async (message: WhatsAppMessage): Promise<any> => {
 };
 
 export const getMessagesChat = async (phone: string): Promise<any> => {
-  const url = "https://gateway.apibrasil.io/api/v2/whatsapp/getMessagesChat";
+  const url = "/api-brasil/api/v2/whatsapp/getMessagesChat";
   try {
     const response: AxiosResponse = await axios.post(url, { phone }, { headers });
     return response.data;
@@ -50,7 +50,7 @@ export const getMessagesChat = async (phone: string): Promise<any> => {
 };
 
 export const getAllNewMessages = async (): Promise<any> => {
-  const url = "https://gateway.apibrasil.io/api/v2/whatsapp/getAllChats";
+  const url = "/api-brasil/api/v2/whatsapp/getAllChats";
   try {
     const response: AxiosResponse = await axios.post(url, {}, { headers });
     const data = response.data;
@@ -86,7 +86,7 @@ export const getAllNewMessages = async (): Promise<any> => {
 
 export const getUnreadMessages = async () => {
   const url =
-    "https://gateway.apibrasil.io/api/v2/whatsapp/getUnreadMessages";
+    "/api-brasil/api/v2/whatsapp/getUnreadMessages";
 
 //   const headers = {
 //     "Content-Type": "application/json",
