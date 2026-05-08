@@ -121,15 +121,16 @@ export default function CRM() {
   const [virtualMsgDialog, setVirtualMsgDialog] = useState(false);
   const [selectedVirtualMsg, setSelectedVirtualMsg] = useState<any>(null);
   const [virtualMsgLoading, setVirtualMsgLoading] = useState(false);
+  const [replyVirtualMsgText, setReplyVirtualMsgText] = useState("");
 
   const abrirDetalhesVirtualMsg = async (baseMsg: any, name: string, cleanPhone: string, time: string, fallbackText: string) => {
-    setSelectedVirtualMsg({ name, cleanPhone, time, text: fallbackText });
+    const targetPhone = baseMsg.id?._serialized || baseMsg.phone || cleanPhone;
+    setSelectedVirtualMsg({ name, cleanPhone, targetPhone, time, rawMessages: [{ text: fallbackText, time, isMe: false }] });
+    setReplyVirtualMsgText("");
     setVirtualMsgDialog(true);
     setVirtualMsgLoading(true);
 
     try {
-      // Usar o ID exato serializado se existir, caso contrário o cleanPhone
-      const targetPhone = baseMsg.id?._serialized || baseMsg.phone || cleanPhone;
       const unread = baseMsg.unreadCount || 1;
       const history = await getMessagesChat(targetPhone, unread);
       
@@ -144,22 +145,75 @@ export default function CRM() {
       
       console.log("Historico retornado:", history, "Array extraido:", arr);
 
-      // Pega a quantidade de mensagens baseada no unreadCount
-      const msgsParaPlotar = arr.filter((m: any) => !(m.fromMe || m.sender === "me")).slice(-unread);
+      // Pega a quantidade de mensagens baseada no unreadCount e estrutura como objetos
+      const msgsParaPlotar = arr.slice(-unread).map((m: any) => ({
+        text: m.text?.message || m.body || m.text || "Mídia/Áudio recebido",
+        time: m.timestamp ? new Date(m.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : time,
+        isMe: m.fromMe || m.sender === "me"
+      }));
       
-      let realText = "";
       if (msgsParaPlotar.length > 0) {
-        realText = msgsParaPlotar.map((m: any) => m.text?.message || m.body || m.text || "Mídia/Áudio recebido").join("\n\n");
-      } else {
-        const lastMsg = arr.filter((m: any) => !(m.fromMe || m.sender === "me")).pop();
-        realText = lastMsg ? (lastMsg.text?.message || lastMsg.body || lastMsg.text || "Mídia/Áudio recebido") : fallbackText;
+        setSelectedVirtualMsg((prev: any) => prev ? { ...prev, rawMessages: msgsParaPlotar } : null);
       }
-
-      setSelectedVirtualMsg((prev: any) => prev ? { ...prev, text: realText } : null);
     } catch (e) {
       console.error(e);
     } finally {
       setVirtualMsgLoading(false);
+    }
+  };
+
+  const responderPeloModal = async () => {
+    if (!selectedVirtualMsg || !replyVirtualMsgText.trim()) return;
+    setSaving(true);
+    
+    try {
+      const { cleanPhone, name, targetPhone } = selectedVirtualMsg;
+      let numToSend = targetPhone || cleanPhone;
+      if (!numToSend.includes("@")) {
+        numToSend = numToSend.replace(/\D/g, "");
+        if (!numToSend.startsWith("55") && numToSend.length <= 11) numToSend = "55" + numToSend;
+      }
+      
+      // Envia via API Brasil
+      await sendText({ number: numToSend, text: replyVirtualMsgText });
+      
+      // Cria ou atualiza lead
+      const existing = leads.find(l => (l.whatsapp === cleanPhone || l.telefone === cleanPhone));
+      if (existing) {
+        await supabase.from("leads").update({ 
+          kanban_status: "em_atendimento",
+          ultima_interacao: new Date().toISOString(),
+          ultima_mensagem: replyVirtualMsgText
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("leads").insert({
+          nome: name,
+          telefone: cleanPhone,
+          whatsapp: cleanPhone,
+          kanban_status: "em_atendimento",
+          ultima_interacao: new Date().toISOString(),
+          ultima_mensagem: replyVirtualMsgText
+        });
+      }
+      
+      toast.success("Respondido! Lead movido para Em Atendimento.");
+      
+      // Atualiza estado local
+      const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+      if (data) setLeads(data as any[]);
+      
+      setInboxMessages(prev => prev.filter((m: any) => {
+         const p = m.phone || m.from || m.id?.split('@')[0] || "";
+         const cp = p.includes('@') ? p.split('@')[0] : p;
+         return cp !== cleanPhone;
+      }));
+      
+      setVirtualMsgDialog(false);
+      setReplyVirtualMsgText("");
+    } catch (err) {
+      toast.error("Erro ao enviar a resposta");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1516,67 +1570,99 @@ export default function CRM() {
       </Dialog>
       {/* Dialog Mensagem Inbox (Virtual Card) */}
       <Dialog open={virtualMsgDialog} onOpenChange={setVirtualMsgDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Detalhes da Mensagem</DialogTitle>
-          </DialogHeader>
-          {selectedVirtualMsg && (
-            <div className="space-y-4 py-2">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-12 w-12 rounded-full bg-gradient-gold text-primary-foreground flex items-center justify-center font-bold">
-                  <UserPlus className="h-6 w-6" />
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-card/95 border-border/50">
+          <DialogHeader className="p-4 border-b border-border/50 bg-card-elevated">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-gold text-primary-foreground flex items-center justify-center font-bold shadow-glow">
+                  <UserPlus className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-semibold text-lg">{selectedVirtualMsg.name}</p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" /> {selectedVirtualMsg.cleanPhone}
+                  <DialogTitle className="text-base font-semibold">{selectedVirtualMsg?.name}</DialogTitle>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Phone className="h-2.5 w-2.5" /> {selectedVirtualMsg?.cleanPhone}
                   </p>
                 </div>
               </div>
-              
-              <div className="bg-card-elevated p-4 rounded-xl border border-border/50 relative">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="h-8 text-[11px] border-primary/30 hover:bg-primary/10 hover:text-primary"
+                onClick={() => {
+                  setVirtualMsgDialog(false);
+                  setCNome(selectedVirtualMsg?.name === selectedVirtualMsg?.cleanPhone ? "" : selectedVirtualMsg?.name);
+                  setCTelefone(selectedVirtualMsg?.cleanPhone);
+                  setCWhats(selectedVirtualMsg?.cleanPhone);
+                  setClienteDialog(true);
+                }}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Lead
+              </Button>
+            </div>
+          </DialogHeader>
+
+          {selectedVirtualMsg && (
+            <>
+              {/* Message History Area */}
+              <div className="p-4 bg-black/20 min-h-[250px] max-h-[350px] overflow-y-auto space-y-4 scrollbar-thin">
                 {virtualMsgLoading ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Buscando mensagem...
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm py-10">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Buscando mensagens reais...
                   </div>
+                ) : selectedVirtualMsg.rawMessages && selectedVirtualMsg.rawMessages.length > 0 ? (
+                  selectedVirtualMsg.rawMessages.map((m: any, idx: number) => (
+                    <div key={idx} className={`flex flex-col max-w-[85%] ${m.isMe ? "ml-auto items-end" : "mr-auto items-start"}`}>
+                      <div className={`p-2.5 rounded-2xl text-sm whitespace-pre-wrap shadow-sm ${m.isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card-elevated border border-border/40 rounded-tl-none"}`}>
+                        {m.text}
+                      </div>
+                      <span className="text-[9px] text-muted-foreground mt-1 px-1">
+                        {m.time}
+                      </span>
+                    </div>
+                  ))
                 ) : (
-                  <>
-                    <p className="text-sm text-foreground/90 whitespace-pre-wrap">{selectedVirtualMsg.text}</p>
-                    {selectedVirtualMsg.time && (
-                      <p className="text-[10px] text-muted-foreground mt-2 text-right">{selectedVirtualMsg.time}</p>
-                    )}
-                  </>
+                  <p className="text-center text-muted-foreground text-sm py-10">Nenhuma mensagem encontrada.</p>
                 )}
               </div>
 
-              <div className="flex gap-2 pt-4">
-                <Button 
-                  className="flex-1 bg-gradient-gold text-primary-foreground" 
-                  onClick={() => {
-                    setVirtualMsgDialog(false);
-                    setTab("inbox");
-                    loadChat(selectedVirtualMsg.cleanPhone);
+              {/* Reply Area */}
+              <div className="p-3 bg-card-elevated border-t border-border/50 flex flex-col gap-2">
+                <Textarea 
+                  value={replyVirtualMsgText}
+                  onChange={e => setReplyVirtualMsgText(e.target.value)}
+                  placeholder="Escreva sua resposta..."
+                  className="min-h-[60px] max-h-[100px] resize-none text-sm bg-background/50 border-border/40 focus:bg-background"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      responderPeloModal();
+                    }
                   }}
-                >
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Abrir Chat
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    setVirtualMsgDialog(false);
-                    setCNome(selectedVirtualMsg.name === selectedVirtualMsg.cleanPhone ? "" : selectedVirtualMsg.name);
-                    setCTelefone(selectedVirtualMsg.cleanPhone);
-                    setCWhats(selectedVirtualMsg.cleanPhone);
-                    setClienteDialog(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Salvar Lead
-                </Button>
+                />
+                <div className="flex justify-between items-center">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs text-muted-foreground hover:text-foreground h-8"
+                    onClick={() => {
+                      setVirtualMsgDialog(false);
+                      setTab("inbox");
+                      loadChat(selectedVirtualMsg.cleanPhone);
+                    }}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 mr-1.5" /> Abrir Inbox Completo
+                  </Button>
+                  <Button 
+                    size="sm"
+                    className="bg-gradient-gold text-primary-foreground h-8 px-4 font-medium"
+                    onClick={responderPeloModal}
+                    disabled={saving || !replyVirtualMsgText.trim()}
+                  >
+                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Enviar Resposta"}
+                  </Button>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

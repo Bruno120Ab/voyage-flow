@@ -10,8 +10,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Loader2, Calendar, Clock, MapPin, MessageCircle, ChevronLeft, ChevronRight, Users, DollarSign, AlertCircle, CheckCircle2, Bus, UserPlus, Edit2, Trash2, Map, Wifi, Snowflake, Plug, Droplet, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Plus, Loader2, Calendar, Clock, MapPin, MessageCircle, ChevronLeft, ChevronRight, Users, DollarSign, AlertCircle, CheckCircle2, Bus, UserPlus, Edit2, Trash2, Map, Wifi, Snowflake, Plug, Droplet, ArrowDownRight, ArrowUpRight, BellRing } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { sendText } from "@/utils/sendZapApi";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -114,6 +115,8 @@ export default function Embarques() {
   const [selected, setSelected] = useState<Embarque | null>(null);
   const [selectedPax, setSelectedPax] = useState<EmbPax[]>([]);
   const [paxLoading, setPaxLoading] = useState(false);
+  const [sendingBase, setSendingBase] = useState(false);
+  const [sendingPaxId, setSendingPaxId] = useState<string | null>(null);
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const [form, setForm] = useState({
     origem: "", destino: "", local_embarque: "",
@@ -256,6 +259,77 @@ export default function Embarques() {
     toast.success("Passageiro adicionado");
     loadPax(selected.id);
   };
+
+  const notifyBase = async (e: Embarque, paxList: EmbPax[]) => {
+    try {
+      setSendingBase(true);
+      const dataFormatada = new Date(e.data_saida).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      const paxCount = paxList.length;
+      let msg = `🚨 *Lembrete de Embarque (30 min)* 🚨\n\n`;
+      msg += `*Rota:* ${e.origem} → ${e.destino}\n`;
+      msg += `*Data/Hora:* ${dataFormatada}\n`;
+      msg += `*Local:* ${e.local_embarque || "Não definido"}\n`;
+      msg += `*Passageiros confirmados:* ${paxCount}\n`;
+      if (e.veiculos) {
+         msg += `*Veículo:* ${e.veiculos.placa} - ${e.veiculos.modelo}\n`;
+      }
+      
+      let numToSend = "557791157974";
+      await sendText({ number: numToSend, text: msg });
+      toast.success("Notificação enviada para a Base!");
+    } catch (err) {
+      toast.error("Erro ao notificar a base.");
+    } finally {
+      setSendingBase(false);
+    }
+  };
+
+  const notifyPax = async (e: Embarque, p: EmbPax) => {
+    try {
+      setSendingPaxId(p.id);
+      const phoneRaw = p.passageiros.whatsapp ?? p.passageiros.telefone;
+      if (!phoneRaw) return toast.error("Passageiro sem telefone");
+      const numToSend = "55" + onlyDigits(phoneRaw).replace(/^55/, "");
+      
+      const firstName = p.passageiros.nome.split(" ")[0];
+      const dataFormatada = new Date(e.data_saida).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      const msg = `Olá ${firstName}! Seu embarque de ${e.origem} para ${e.destino} será em breve (${dataFormatada}). ${e.local_embarque ? `O local de embarque é: ${e.local_embarque}.` : ""} Por favor, esteja pronto. Boa viagem!`;
+      
+      await sendText({ number: numToSend, text: msg });
+      toast.success(`Aviso disparado para ${firstName}!`);
+    } catch (err) {
+      toast.error(`Erro ao enviar aviso para ${p.passageiros.nome}`);
+    } finally {
+      setSendingPaxId(null);
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      items.forEach(e => {
+        if (e.status === "cancelado" || e.status === "finalizado") return;
+        
+        const embarqueTime = new Date(e.data_saida).getTime();
+        const diffMs = embarqueTime - now;
+        const diffMins = diffMs / 1000 / 60;
+        
+        // Verifica se está entre 29 e 30 minutos para o embarque
+        if (diffMins > 29 && diffMins <= 30) {
+          const notifiedKey = `notified_base_${e.id}`;
+          if (!localStorage.getItem(notifiedKey)) {
+            localStorage.setItem(notifiedKey, "true");
+            // Busca passageiros para incluir na contagem e dispara
+            supabase.from("embarque_passageiros").select("*").eq("embarque_id", e.id).then(({ data }) => {
+               notifyBase(e, (data as any) || []);
+            });
+          }
+        }
+      });
+    }, 60000); // Checa a cada 1 minuto
+    
+    return () => clearInterval(interval);
+  }, [items]);
 
   // ===== Dashboard stats =====
   const stats = useMemo(() => {
@@ -476,6 +550,15 @@ export default function Embarques() {
                   )}
                 </Card>
 
+                <Button 
+                  onClick={() => notifyBase(selected, selectedPax)} 
+                  disabled={sendingBase}
+                  className="w-full bg-gradient-gold text-primary-foreground font-semibold"
+                >
+                  {sendingBase ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <BellRing className="h-4 w-4 mr-2" />}
+                  Notificar Base (Aviso 30 min)
+                </Button>
+
                 <div className="flex items-center justify-between">
                   <h4 className="font-display font-semibold flex items-center gap-2"><Users className="h-4 w-4" />Passageiros ({selectedPax.length})</h4>
                   <AddPaxButton allPax={allPax} alreadyIds={selectedPax.map(p => p.passageiro_id)} onAdd={addPaxToEmbarque} />
@@ -509,13 +592,24 @@ export default function Embarques() {
                             <CheckItem label="Comprovante" checked={p.comprovante_enviado} onChange={(v) => toggleFlag(p.id, "comprovante_enviado", v)} />
                             <CheckItem label="Impresso" checked={p.bilhete_impresso} onChange={(v) => toggleFlag(p.id, "bilhete_impresso", v)} />
                           </div>
-                          {wa ? (
-                            <a href={wa} target="_blank" rel="noreferrer">
-                              <Button size="sm" className="w-full bg-success hover:bg-success/90 text-success-foreground"><MessageCircle className="h-3.5 w-3.5 mr-1.5" />WhatsApp</Button>
-                            </a>
-                          ) : (
-                            <Button size="sm" disabled className="w-full">Sem WhatsApp</Button>
-                          )}
+                          <div className="flex gap-2">
+                            {wa ? (
+                              <a href={wa} target="_blank" rel="noreferrer" className="flex-1">
+                                <Button size="sm" variant="outline" className="w-full border-success/30 text-success hover:bg-success/10"><MessageCircle className="h-3.5 w-3.5 mr-1.5" />WhatsApp</Button>
+                              </a>
+                            ) : (
+                              <Button size="sm" disabled variant="outline" className="flex-1">Sem WhatsApp</Button>
+                            )}
+                            <Button 
+                              size="sm" 
+                              onClick={() => notifyPax(selected, p)}
+                              disabled={sendingPaxId === p.id || (!p.passageiros.whatsapp && !p.passageiros.telefone)}
+                              className="flex-1 bg-primary text-primary-foreground"
+                            >
+                              {sendingPaxId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BellRing className="h-3.5 w-3.5 mr-1.5" />}
+                              Disparar Aviso
+                            </Button>
+                          </div>
                         </Card>
                       );
                     })}
