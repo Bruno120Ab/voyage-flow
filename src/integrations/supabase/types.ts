@@ -474,6 +474,47 @@ export type Database = {
           },
         ]
       }
+      mensagens_whatsapp: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          direcao: Database["public"]["Enums"]["msg_direcao"]
+          external_id: string | null
+          id: string
+          lead_id: string | null
+          telefone: string
+          texto: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          direcao: Database["public"]["Enums"]["msg_direcao"]
+          external_id?: string | null
+          id?: string
+          lead_id?: string | null
+          telefone: string
+          texto?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          direcao?: Database["public"]["Enums"]["msg_direcao"]
+          external_id?: string | null
+          id?: string
+          lead_id?: string | null
+          telefone?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_whatsapp_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       passageiros: {
         Row: {
           cidade: string | null
@@ -744,6 +785,7 @@ export type Database = {
         | "fechado"
         | "pos_venda"
         | "perdido"
+      msg_direcao: "entrada" | "saida"
       pagamento_status: "pendente" | "parcial" | "pago"
       passageiro_tag:
         | "novo"
@@ -915,6 +957,7 @@ export const Constants = {
         "pos_venda",
         "perdido",
       ],
+      msg_direcao: ["entrada", "saida"],
       pagamento_status: ["pendente", "parcial", "pago"],
       passageiro_tag: [
         "novo",
