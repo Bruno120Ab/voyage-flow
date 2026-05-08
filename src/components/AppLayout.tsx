@@ -3,14 +3,33 @@ import { AppSidebar } from "./AppSidebar";
 import { Bell, Search, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { getUnreadMessages } from "@/utils/sendZapApi";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const handleLogout = async () => { await signOut(); navigate("/auth"); };
+
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r: any = await getUnreadMessages();
+        const arr = Array.isArray(r) ? r
+          : Array.isArray(r?.messages) ? r.messages
+          : Array.isArray(r?.response) ? r.response
+          : Array.isArray(r?.data) ? r.data : [];
+        if (!cancelled) setUnread(arr.length);
+      } catch { /* silencioso */ }
+    };
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   return (
     <SidebarProvider>
@@ -27,9 +46,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               />
             </div>
             <div className="flex items-center gap-1 sm:gap-2 ml-auto">
-              <Button variant="ghost" size="icon" className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                onClick={() => navigate("/crm")}
+                title={unread > 0 ? `${unread} mensagens não lidas` : "Sem novas mensagens"}
+              >
                 <Bell className="h-[18px] w-[18px]" />
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
+                {unread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
               </Button>
               <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
                 <LogOut className="h-[18px] w-[18px]" />

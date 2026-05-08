@@ -221,15 +221,6 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
   >
     Epass →
   </a>
-  <Button 
-    onClick={() => sendText({ number: "5511999999999", text: "Olá! Esta é uma mensagem de teste do sistema." })} 
-    variant="outline" 
-    size="sm"
-    className="flex items-center gap-2"
-  >
-    <MessageCircle className="h-4 w-4" />
-    Testar Zap
-  </Button>
 </div>
 
   </div>
