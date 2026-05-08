@@ -16,6 +16,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { sendText, getAllNewMessages, getMessagesChat } from "@/utils/sendZapApi";
+import { renderClientName } from "@/utils/nameClient";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type Etapa = Database["public"]["Enums"]["lead_etapa"];
@@ -686,6 +687,40 @@ export default function CRM() {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
+  // EXEMPLO:
+// contatos feitos hoje por hora
+
+const contatosHoje = leads.filter((lead) => {
+  if (!lead.ultima_interacao) return false;
+
+  const data = new Date(lead.ultima_interacao);
+  const hoje = new Date();
+
+  return (
+    data.getDate() === hoje.getDate() &&
+    data.getMonth() === hoje.getMonth() &&
+    data.getFullYear() === hoje.getFullYear()
+  );
+});
+
+// AGRUPAR POR HORA
+const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
+  const total = contatosHoje.filter((lead) => {
+    const data = new Date(lead.ultima_interacao);
+    return data.getHours() === hour;
+  }).length;
+
+  return {
+    name: `${hour}h`,
+    valor: total,
+    hex:
+      total >= 10
+        ? "#22c55e"
+        : total >= 5
+        ? "#3b82f6"
+        : "#f59e0b",
+  };
+});
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
       <div className="flex items-end justify-between flex-wrap gap-4">
@@ -801,10 +836,10 @@ export default function CRM() {
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.hex }}></span>
                         {col.title}
                       </h3>
-                      <Badge variant="secondary" className="text-xs bg-background/50">{cards.length}</Badge>
+                      <Badge variant="secondary" className="text-xs bg-background/50">{col.key.length}</Badge>
                     </div>
                     <div className="space-y-2 overflow-y-auto pr-1 flex-1 scrollbar-thin">
-                      {cards.length === 0 && (
+                      {col.key.length === 0 && (
                         <p className="text-[11px] text-muted-foreground/60 text-center py-6 border border-dashed border-border/50 rounded-lg">Vazio</p>
                       )}
                       {cards.map(c => {
@@ -868,7 +903,8 @@ export default function CRM() {
                           >
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <div className="flex flex-col min-w-0">
-                                <p className="font-semibold text-sm leading-tight truncate">{name} <span className="text-[10px] text-destructive">(ZAP)</span></p>
+                                {/* <p className="font-semibold text-sm leading-tight truncate">{name} a <span className="text-[10px] text-destructive">(ZAP)</span></p> */}
+                                {renderClientName(name)}
                                 {time && <span className="text-[10px] text-muted-foreground">{time}</span>}
                               </div>
                               <button onClick={(e) => {
@@ -1017,19 +1053,32 @@ export default function CRM() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="glass-card lg:col-span-2 flex flex-col">
               <CardHeader>
-                <CardTitle className="font-display text-lg flex items-center gap-2"><BarChart2 className="h-5 w-5 text-primary" /> Distribuição do Funil</CardTitle>
-              </CardHeader>
+<CardTitle className="font-display text-lg flex items-center gap-2">
+  <BarChart2 className="h-5 w-5 text-primary" />
+  Contatos realizados hoje
+</CardTitle>              </CardHeader>
               <CardContent className="flex-1 min-h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={metrics.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={contatosPorHora} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
                     <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val/1000}k`} />
-                    <Tooltip 
-                      cursor={{fill: '#ffffff0a'}}
-                      contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px', fontSize: '12px' }}
-                      formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR")}`, 'Valor Estimado']}
-                    />
+<YAxis
+  tick={{ fontSize: 11, fill: "#888" }}
+  axisLine={false}
+  tickLine={false}
+/>                    <Tooltip
+  cursor={{ fill: "#ffffff0a" }}
+  contentStyle={{
+    backgroundColor: "#111",
+    border: "1px solid #333",
+    borderRadius: "8px",
+    fontSize: "12px",
+  }}
+  formatter={(value: number) => [
+    `${value} contatos`,
+    "Contatos realizados",
+  ]}
+/>
                     <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
                       {metrics.chartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.hex} />
@@ -1045,9 +1094,10 @@ export default function CRM() {
                 <CardTitle className="font-display text-lg flex items-center gap-2"><TrendingUp className="h-5 w-5 text-warning" /> Top 5 Oportunidades</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto space-y-3 pr-2">
-                {metrics.topOps.length === 0 ? (
+                {/* {metrics.topOps.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">Nenhuma oportunidade ativa com valor.</p>
                 ) : metrics.topOps.map((op, i) => (
+                  
                   <div key={op.id} className="p-3 rounded-lg border border-border/50 bg-card-elevated/30 flex justify-between items-center hover:border-primary/40 transition-colors">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate">{op.nome}</p>
@@ -1058,7 +1108,87 @@ export default function CRM() {
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openWhats(op.whatsapp || op.telefone)}><MessageCircle className="h-3 w-3 text-success" /></Button>
                     </div>
                   </div>
-                ))}
+                  
+                ))} */}
+                {metrics.topOps
+  .filter((op) =>
+    op.nome?.toUpperCase().includes("PS")
+  )
+  .length === 0 ? (
+    <p className="text-sm text-muted-foreground text-center py-6">
+      Nenhum cliente PS encontrado.
+    </p>
+  ) : (
+  metrics.topOps
+  .filter((op) => {
+    const nome = (op.nome || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
+
+    return (
+      nome.includes(" PS ") ||
+      nome.startsWith("PS ") ||
+      nome.endsWith(" PS") ||
+      nome.includes("[PS]") ||
+      nome.includes("(PS)") ||
+      nome.includes("-PS") ||
+      nome.includes("PS-") ||
+      nome.includes("PS:")
+    );
+  })
+      .map((op, i) => (
+        <div
+          key={op.id}
+          className="
+            p-3 rounded-lg border
+            border-emerald-500/20
+            bg-emerald-500/5
+            flex justify-between items-center
+            hover:border-emerald-500/40
+            transition-colors
+          "
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm truncate text-emerald-600">
+                {op.nome}
+              </p>
+
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                CLIENTE
+              </span>
+            </div>
+
+            <p className="text-xs text-muted-foreground capitalize">
+              {op.etapa.replace("_", " ")}
+            </p>
+          </div>
+
+          <div className="text-right shrink-0 ml-3">
+            <p className="font-bold text-sm text-gradient-gold">
+              R${" "}
+              {Number(
+                op.valor_estimado
+              ).toLocaleString("pt-BR")}
+            </p>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() =>
+                openWhats(
+                  op.whatsapp || op.telefone
+                )
+              }
+            >
+              <MessageCircle className="h-3 w-3 text-success" />
+            </Button>
+          </div>
+        </div>
+      ))
+)}
               </CardContent>
             </Card>
           </div>

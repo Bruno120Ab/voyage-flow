@@ -10,11 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Loader2, Bus, MapPin, Clock, Search, RotateCcw, Plus, Package, User, CheckCircle2, AlertCircle, Copy, Trash2, ArrowRight, ArrowDownRight, ArrowUpRight, MapPinned } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Database } from "@/integrations/supabase/types";
+import { solicitarLocalizacao } from "@/utils/cco";
 
 type EmbarqueDia = Database["public"]["Tables"]["embarques_dia"]["Row"];
 
@@ -469,6 +470,25 @@ export default function PaginaEmbarques() {
                           </>
                         ) : (
                           <>
+                          <Button
+                          size="sm"
+                          variant="outline"
+                          className="
+                            h-9
+                            gap-2
+                            border-primary/20
+                            hover:border-primary/40
+                            hover:bg-primary/5
+                          "
+                        onClick={() => {
+  console.log("🚌 ITEM SELECIONADO:", item);
+
+  solicitarLocalizacao(item);
+}}
+                        >
+                          <MapPinned className="h-4 w-4" />
+                          CCO
+                        </Button>
                             <Button size="sm" variant="outline" onClick={() => abrirModalEditar(item)} className="h-9 flex-1 sm:flex-none">Editar Serviço</Button>
                             <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95 flex-1 sm:flex-none">Fazer Check-in</Button>
                             <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></Button>
