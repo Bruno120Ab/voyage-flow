@@ -45,3 +45,28 @@ export const getAllNewMessages = async (): Promise<any> => {
     throw error;
   }
 };
+
+export const getUnreadMessages = async (): Promise<any> => {
+  const url =
+    "https://gateway.apibrasil.io/api/v2/whatsapp/getUnreadMessages";
+
+  try {
+    const response: AxiosResponse = await axios.get(url, {
+      headers,
+    });
+
+    console.log(
+      "Mensagens não lidas:",
+      response.data
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error(
+      "Erro ao buscar mensagens não lidas:",
+      error.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
