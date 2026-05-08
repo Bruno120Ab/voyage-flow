@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { sendText } from "@/utils/sendZapApi";
 
 interface DashboardStats {
   faturamentoMes: number;
@@ -210,8 +211,8 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
       em andamento.
     </p>
 
-    {/* Botão para plataforma de vendas */}
-<div className="mt-4">
+    {/* Botões de Ação */}
+<div className="mt-4 flex items-center gap-4">
   <a
     href="https://sua-plataforma-de-vendas.com"
     target="_blank"
@@ -220,6 +221,15 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
   >
     Epass →
   </a>
+  <Button 
+    onClick={() => sendText({ number: "5511999999999", text: "Olá! Esta é uma mensagem de teste do sistema." })} 
+    variant="outline" 
+    size="sm"
+    className="flex items-center gap-2"
+  >
+    <MessageCircle className="h-4 w-4" />
+    Testar Zap
+  </Button>
 </div>
 
   </div>

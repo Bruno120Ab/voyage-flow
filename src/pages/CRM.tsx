@@ -15,6 +15,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { sendText, getAllNewMessages, getMessagesChat } from "@/utils/sendZapApi";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type Etapa = Database["public"]["Enums"]["lead_etapa"];
@@ -48,12 +49,6 @@ const kanbanCols: { key: KanbanStatus; title: string; hex: string; ring: string 
   { key: "aguardando", title: "Aguardando", hex: "#f59e0b", ring: "border-t-warning" },
   { key: "finalizado", title: "Finalizado", hex: "#64748b", ring: "border-t-muted-foreground" },
 ];
-
-// Placeholder de integração com WhatsApp API (futuro)
-export async function enviarMensagem(telefone: string, texto: string) {
-  console.log("[enviarMensagem] integração futura WhatsApp API", { telefone, texto });
-  return { ok: true };
-}
 
 export default function CRM() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -108,6 +103,101 @@ export default function CRM() {
   const [histDialog, setHistDialog] = useState(false);
   const [histLead, setHistLead] = useState<Lead | null>(null);
   const [histEmbarques, setHistEmbarques] = useState<EmbarqueDia[]>([]);
+
+  // Zap Automático
+  const [zapDialog, setZapDialog] = useState(false);
+  const [zapLead, setZapLead] = useState<Lead | null>(null);
+  const [zapText, setZapText] = useState("");
+
+  // Inbox Zap
+  const [inboxMessages, setInboxMessages] = useState<any[]>([]);
+  const [selectedChat, setSelectedChat] = useState<any>(null);
+  const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [replyText, setReplyText] = useState("");
+
+  const loadInbox = async () => {
+    setInboxLoading(true);
+    try {
+      const msgs = await getAllNewMessages();
+      console.log(JSON.stringify(`A Mensagem é essa` + msgs));
+      let arr = [];
+      if (Array.isArray(msgs)) arr = msgs;
+      else if (msgs && Array.isArray(msgs.messages)) arr = msgs.messages;
+      else if (msgs && Array.isArray(msgs.response)) arr = msgs.response;
+      else if (msgs && Array.isArray(msgs.data)) arr = msgs.data;
+      else if (msgs && msgs.message && Array.isArray(msgs.message)) arr = msgs.message;
+      
+      setInboxMessages(arr);
+    } catch (e) {
+      toast.error("Erro ao carregar caixa de entrada");
+    } finally {
+      setInboxLoading(false);
+    }
+  };
+
+  const loadChat = async (phone: string) => {
+    setSelectedChat(phone);
+    setChatLoading(true);
+    try {
+      const history = await getMessagesChat(phone);
+      let arr = [];
+      if (Array.isArray(history)) arr = history;
+      else if (history && Array.isArray(history.messages)) arr = history.messages;
+      else if (history && Array.isArray(history.response)) arr = history.response;
+      else if (history && Array.isArray(history.data)) arr = history.data;
+      else if (history && history.message && Array.isArray(history.message)) arr = history.message;
+
+      setChatHistory(arr);
+    } catch (e) {
+      toast.error("Erro ao carregar histórico");
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInbox();
+  }, []);
+
+  const enviarRespostaInbox = async () => {
+    if (!selectedChat || !replyText.trim()) return;
+    setSaving(true);
+    try {
+      await sendText({ number: selectedChat, text: replyText });
+      toast.success("Mensagem enviada!");
+      setReplyText("");
+      await loadChat(selectedChat);
+    } catch (e) {
+      toast.error("Erro ao enviar resposta");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const abrirZap = (l: Lead) => {
+    setZapLead(l);
+    setZapText(`Olá ${l.nome.split(" ")[0]}, `);
+    setZapDialog(true);
+  };
+
+  const enviarZap = async () => {
+    if (!zapLead || !zapText.trim()) return;
+    const phone = zapLead.whatsapp || zapLead.telefone;
+    if (!phone) { toast.error("Cliente não possui telefone"); return; }
+    
+    setSaving(true);
+    try {
+      await sendText({ number: "55" + phone.replace(/\D/g, ""), text: zapText });
+      toast.success("Mensagem enviada com sucesso!");
+      setZapDialog(false);
+    } catch (e) {
+      toast.error("Erro ao enviar mensagem");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     const loadLeads = async () => {
@@ -492,6 +582,7 @@ export default function CRM() {
               <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive shadow-glow"></span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="inbox"><MessageCircle className="h-3.5 w-3.5 mr-1.5" /> Inbox Zap</TabsTrigger>
         </TabsList>
 
         <TabsContent value="atendimento" className="space-y-5">
@@ -617,6 +708,7 @@ export default function CRM() {
                             )}
                             <div className="flex gap-1 mt-2 pt-2 border-t border-border/40">
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-success hover:bg-success/10" onClick={() => openWhats(c.whatsapp || c.telefone)} title="WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:bg-emerald-500/10" onClick={() => abrirZap(c)} title="Disparar Mensagem API"><Inbox className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={() => abrirEmbarque(c)} title="Novo embarque"><Bus className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-accent/10" onClick={() => abrirHistorico(c)} title="Histórico"><Users className="h-3.5 w-3.5" /></Button>
                               <Select value={(c as any).kanban_status || "nao_atendido"} onValueChange={(v) => moverKanban(c.id, v as KanbanStatus)}>
@@ -628,6 +720,40 @@ export default function CRM() {
                             </div>
                           </Card>
                         );
+                      })}
+                      {/* Virtual Cards from Inbox */}
+                      {col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.map((msg: any, i) => {
+                        const phone = msg.phone || msg.from;
+                        const name = msg.pushName || phone || "Novo Contato";
+                        const text = msg.text?.message || msg.body || msg.text || "Nova mensagem recebida...";
+                        return (
+                          <Card
+                            key={`virtual_msg_${i}`}
+                            className="glass-card p-3 border-l-4 border-l-destructive bg-destructive/5 hover:border-destructive/40 transition-all group"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-semibold text-sm leading-tight truncate">{name} <span className="text-[10px] text-destructive">(ZAP)</span></p>
+                              <button onClick={() => {
+                                setCNome(name === phone ? "" : name);
+                                setCTelefone(phone);
+                                setCWhats(phone);
+                                setClienteDialog(true);
+                              }} title="Salvar como Lead" className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-primary">
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1"><Phone className="h-2.5 w-2.5" /> {phone}</p>
+                            <p className="text-[11px] italic text-foreground/70 mt-1 line-clamp-2">"{text}"</p>
+                            <div className="flex gap-1 mt-2 pt-2 border-t border-border/40">
+                              <Button variant="ghost" size="sm" className="h-7 w-full text-xs text-primary bg-primary/10 hover:bg-primary/20" onClick={() => {
+                                setTab("inbox");
+                                loadChat(phone);
+                              }}>
+                                <MessageCircle className="h-3.5 w-3.5 mr-1" /> Abrir Conversa
+                              </Button>
+                            </div>
+                          </Card>
+                        )
                       })}
                     </div>
                   </div>
@@ -788,6 +914,7 @@ export default function CRM() {
                               <span className="font-display font-bold text-sm text-gradient-gold">R$ {Number(c.valor_estimado || 0).toLocaleString("pt-BR")}</span>
                               <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-success hover:bg-success/10" onClick={(e) => { e.stopPropagation(); openWhats(c.whatsapp || c.telefone); }}><MessageCircle className="h-3.5 w-3.5" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10" onClick={(e) => { e.stopPropagation(); abrirZap(c); }} title="Disparar Mensagem API"><Inbox className="h-3.5 w-3.5" /></Button>
                                 {c.telefone && (
                                   <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); window.open(`tel:${c.telefone}`); }}><Phone className="h-3.5 w-3.5" /></Button>
                                 )}
@@ -910,6 +1037,113 @@ export default function CRM() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="inbox" className="space-y-6">
+          <Card className="glass-card flex overflow-hidden border-border/50 h-[70vh] min-h-[500px]">
+            {/* Lista Lateral de Contatos */}
+            <div className="w-1/3 min-w-[280px] border-r border-border/50 flex flex-col bg-card-elevated/30">
+              <div className="p-4 border-b border-border/50 flex justify-between items-center">
+                <h3 className="font-semibold text-sm">Novas Mensagens</h3>
+                <Button variant="ghost" size="icon" onClick={loadInbox} disabled={inboxLoading}>
+                  <Repeat className={`h-4 w-4 ${inboxLoading ? "animate-spin text-primary" : "text-muted-foreground"}`} />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-y-auto scrollbar-thin">
+                {(!Array.isArray(inboxMessages) || inboxMessages.length === 0) ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-60">
+                    <MessageCircle className="h-10 w-10 mb-2" />
+                    <p className="text-sm">Nenhuma mensagem nova</p>
+                  </div>
+                ) : (
+                  Array.isArray(inboxMessages) && inboxMessages.map((msg: any, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => loadChat(msg.phone || msg.from)} 
+                      className={`p-4 border-b border-border/30 cursor-pointer transition-all hover:bg-primary/5 ${selectedChat === (msg.phone || msg.from) ? "bg-primary/10 border-l-2 border-l-primary" : ""}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gradient-gold text-primary-foreground flex items-center justify-center font-bold">
+                          <UserPlus className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{msg.pushName || msg.phone || msg.from || "Desconhecido"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{msg.text?.message || msg.body || msg.text || "Mensagem recebida..."}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Chat Ativo */}
+            <div className="flex-1 flex flex-col bg-background/50 relative">
+              {selectedChat ? (
+                <>
+                  <div className="p-4 border-b border-border/50 bg-card-elevated/40 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-gradient-gold text-primary-foreground flex items-center justify-center font-bold">
+                        <Phone className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">{selectedChat}</p>
+                        <p className="text-xs text-muted-foreground flex gap-2">
+                          <button onClick={() => {
+                            setCNome("");
+                            setCTelefone(selectedChat);
+                            setCWhats(selectedChat);
+                            setClienteDialog(true);
+                          }} className="text-primary hover:underline flex items-center gap-1">
+                            <Plus className="h-3 w-3" /> Criar Lead
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => loadChat(selectedChat)} disabled={chatLoading}><Repeat className={`h-4 w-4 ${chatLoading ? "animate-spin" : ""}`} /></Button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+                    {(!Array.isArray(chatHistory) || chatHistory.length === 0) && !chatLoading ? (
+                      <p className="text-center text-muted-foreground text-sm my-10">Histórico vazio ou não carregado.</p>
+                    ) : (
+                      Array.isArray(chatHistory) && chatHistory.map((msg: any, i) => {
+                        const isMe = msg.fromMe || msg.sender === "me"; // Ajuste conforme API
+                        return (
+                          <div key={i} className={`flex flex-col max-w-[75%] ${isMe ? "ml-auto items-end" : "mr-auto items-start"}`}>
+                            <div className={`p-3 rounded-2xl text-sm ${isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card-elevated border border-border/50 rounded-tl-none"}`}>
+                              {msg.text?.message || msg.body || msg.text || "Conteúdo de mídia..."}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground mt-1 opacity-70">
+                              {msg.timestamp ? new Date(msg.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ""}
+                            </span>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+
+                  <div className="p-4 bg-card-elevated/40 border-t border-border/50 flex gap-2 items-end">
+                    <Textarea 
+                      value={replyText} 
+                      onChange={e => setReplyText(e.target.value)} 
+                      placeholder="Digite a mensagem..." 
+                      className="min-h-[50px] max-h-[120px] bg-background resize-none"
+                    />
+                    <Button onClick={enviarRespostaInbox} disabled={saving || !replyText.trim()} className="bg-gradient-gold text-primary-foreground h-[50px] px-6">
+                      {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : "Enviar"}
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-60">
+                  <MessageCircle className="h-16 w-16 mb-4" />
+                  <p className="text-lg font-medium">Selecione uma conversa</p>
+                  <p className="text-sm">Clique em uma mensagem nova na lista ao lado.</p>
+                </div>
+              )}
+            </div>
+          </Card>
         </TabsContent>
 
       </Tabs>
@@ -1077,6 +1311,36 @@ export default function CRM() {
               </div>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Zap Automático */}
+      <Dialog open={zapDialog} onOpenChange={setZapDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disparar Mensagem WhatsApp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Para</Label>
+              <Input disabled value={`${zapLead?.nome || ""} (${zapLead?.whatsapp || zapLead?.telefone || "sem número"})`} />
+            </div>
+            <div>
+              <Label>Mensagem</Label>
+              <Textarea 
+                value={zapText} 
+                onChange={e => setZapText(e.target.value)} 
+                rows={5} 
+                placeholder="Digite a mensagem..." 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setZapDialog(false)}>Cancelar</Button>
+            <Button onClick={enviarZap} disabled={saving || !zapText.trim()} className="bg-gradient-gold text-primary-foreground">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar Mensagem"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
