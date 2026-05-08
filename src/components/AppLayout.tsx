@@ -46,9 +46,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               />
             </div>
             <div className="flex items-center gap-1 sm:gap-2 ml-auto">
-              <Button variant="ghost" size="icon" className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                onClick={() => navigate("/crm")}
+                title={unread > 0 ? `${unread} mensagens não lidas` : "Sem novas mensagens"}
+              >
                 <Bell className="h-[18px] w-[18px]" />
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary animate-pulse-glow" />
+                {unread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
               </Button>
               <Button variant="ghost" size="icon" onClick={handleLogout} title="Sair">
                 <LogOut className="h-[18px] w-[18px]" />
