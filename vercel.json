@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api-brasil/(.*)",
+      "destination": "https://gateway.apibrasil.io/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
