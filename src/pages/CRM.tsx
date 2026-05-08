@@ -117,6 +117,52 @@ export default function CRM() {
   const [chatLoading, setChatLoading] = useState(false);
   const [replyText, setReplyText] = useState("");
 
+  // Virtual Msg Dialog
+  const [virtualMsgDialog, setVirtualMsgDialog] = useState(false);
+  const [selectedVirtualMsg, setSelectedVirtualMsg] = useState<any>(null);
+  const [virtualMsgLoading, setVirtualMsgLoading] = useState(false);
+
+  const abrirDetalhesVirtualMsg = async (baseMsg: any, name: string, cleanPhone: string, time: string, fallbackText: string) => {
+    setSelectedVirtualMsg({ name, cleanPhone, time, text: fallbackText });
+    setVirtualMsgDialog(true);
+    setVirtualMsgLoading(true);
+
+    try {
+      // Usar o ID exato serializado se existir, caso contrário o cleanPhone
+      const targetPhone = baseMsg.id?._serialized || baseMsg.phone || cleanPhone;
+      const unread = baseMsg.unreadCount || 1;
+      const history = await getMessagesChat(targetPhone, unread);
+      
+      let arr: any[] = [];
+      if (Array.isArray(history)) arr = history;
+      else if (history?.messages && Array.isArray(history.messages)) arr = history.messages;
+      else if (history?.response && Array.isArray(history.response)) arr = history.response;
+      else if (history?.response?.messages && Array.isArray(history.response.messages)) arr = history.response.messages;
+      else if (history?.response?.data && Array.isArray(history.response.data)) arr = history.response.data;
+      else if (history?.data && Array.isArray(history.data)) arr = history.data;
+      else if (history?.message && Array.isArray(history.message)) arr = history.message;
+      
+      console.log("Historico retornado:", history, "Array extraido:", arr);
+
+      // Pega a quantidade de mensagens baseada no unreadCount
+      const msgsParaPlotar = arr.filter((m: any) => !(m.fromMe || m.sender === "me")).slice(-unread);
+      
+      let realText = "";
+      if (msgsParaPlotar.length > 0) {
+        realText = msgsParaPlotar.map((m: any) => m.text?.message || m.body || m.text || "Mídia/Áudio recebido").join("\n\n");
+      } else {
+        const lastMsg = arr.filter((m: any) => !(m.fromMe || m.sender === "me")).pop();
+        realText = lastMsg ? (lastMsg.text?.message || lastMsg.body || lastMsg.text || "Mídia/Áudio recebido") : fallbackText;
+      }
+
+      setSelectedVirtualMsg((prev: any) => prev ? { ...prev, text: realText } : null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setVirtualMsgLoading(false);
+    }
+  };
+
   const loadInbox = async () => {
     setInboxLoading(true);
     try {
@@ -343,10 +389,29 @@ export default function CRM() {
   };
 
   const moverKanban = async (leadId: string, novo: KanbanStatus) => {
+    // Atualização otimista local para reatividade 100% instantânea
+    setLeads(prev => prev.map(l => l.id === leadId ? { 
+      ...l, 
+      kanban_status: novo, 
+      ultima_interacao: new Date().toISOString(), 
+      ...(novo === "finalizado" ? { pronto_revenda: false } : {}) 
+    } as any : l));
+
     const { error } = await supabase.from("leads").update({
       kanban_status: novo,
       ultima_interacao: new Date().toISOString(),
       ...(novo === "finalizado" ? { pronto_revenda: false } : {}),
+    } as any).eq("id", leadId);
+    if (error) toast.error(error.message);
+  };
+
+  const moverFunil = async (leadId: string, novaEtapa: Etapa) => {
+    // Atualização otimista local para reatividade 100% instantânea
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, etapa: novaEtapa } : l));
+
+    const { error } = await supabase.from("leads").update({
+      etapa: novaEtapa,
+      updated_at: new Date().toISOString()
     } as any).eq("id", leadId);
     if (error) toast.error(error.message);
   };
@@ -739,19 +804,21 @@ export default function CRM() {
                         const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
                         const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
                         const time = msg.t ? new Date(msg.t * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";
-                        {console.log(phone)}
+                        {console.log(msg)}
                         
                         return (
                           <Card
                             key={`virtual_msg_${i}`}
-                            className="glass-card p-3 border-l-4 border-l-destructive bg-destructive/5 hover:border-destructive/40 transition-all group"
+                            className="glass-card p-3 border-l-4 border-l-destructive bg-destructive/5 hover:border-destructive/40 transition-all group cursor-pointer"
+                            onClick={() => abrirDetalhesVirtualMsg(msg, name, cleanPhone, time, text)}
                           >
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <div className="flex flex-col min-w-0">
                                 <p className="font-semibold text-sm leading-tight truncate">{name} <span className="text-[10px] text-destructive">(ZAP)</span></p>
                                 {time && <span className="text-[10px] text-muted-foreground">{time}</span>}
                               </div>
-                              <button onClick={() => {
+                              <button onClick={(e) => {
+                                e.stopPropagation();
                                 setCNome(name === cleanPhone ? "" : name);
                                 setCTelefone(cleanPhone);
                                 setCWhats(cleanPhone);
@@ -767,6 +834,7 @@ export default function CRM() {
                                 placeholder="Responder rápida..." 
                                 className="h-7 text-[11px] px-2 flex-1"
                                 id={`reply_input_${cleanPhone}`}
+                                onClick={e => e.stopPropagation()}
                                 onKeyDown={async (e) => {
                                   if (e.key === 'Enter') {
                                     const val = (e.target as HTMLInputElement).value;
@@ -818,7 +886,8 @@ export default function CRM() {
                                   }
                                 }}
                               />
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary bg-primary/10 hover:bg-primary/20 shrink-0" title="Abrir Chat Completo" onClick={() => {
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary bg-primary/10 hover:bg-primary/20 shrink-0" title="Abrir Chat Completo" onClick={(e) => {
+                                e.stopPropagation();
                                 setTab("inbox");
                                 loadChat(cleanPhone);
                               }}>
@@ -948,7 +1017,12 @@ export default function CRM() {
                 const cards = leads.filter(l => l.etapa === col.key);
                 const total = cards.reduce((s, c) => s + Number(c.valor_estimado || 0), 0);
                 return (
-                  <div key={col.key} className={`w-[320px] shrink-0 rounded-xl bg-card-elevated/20 border border-border/40 border-t-2 ${col.color.split(' ')[0]} p-3 flex flex-col max-h-[75vh]`}>
+                  <div 
+                    key={col.key} 
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => { if (draggingId) { moverFunil(draggingId, col.key); setDraggingId(null); } }}
+                    className={`w-[320px] shrink-0 rounded-xl bg-card-elevated/20 border border-border/40 border-t-2 ${col.color.split(' ')[0]} p-3 flex flex-col max-h-[75vh]`}
+                  >
                     <div className="flex items-center justify-between mb-3 px-1">
                       <div>
                         <h3 className="font-display font-semibold text-sm flex items-center gap-1.5">
@@ -968,10 +1042,23 @@ export default function CRM() {
                         const isPending = col.key !== 'fechado' && col.key !== 'perdido' && col.key !== 'pos_venda';
                         
                         return (
-                          <Card key={c.id} className={`glass-card p-3 hover:border-primary/40 transition-all cursor-pointer group ${isLate && isPending ? 'border-destructive/40 shadow-[0_0_8px_rgba(239,68,68,0.1)]' : ''}`}>
+                          <Card 
+                            key={c.id} 
+                            draggable
+                            onDragStart={() => setDraggingId(c.id)}
+                            onDragEnd={() => setDraggingId(null)}
+                            className={`glass-card p-3 hover:border-primary/40 transition-all cursor-grab active:cursor-grabbing group ${isLate && isPending ? 'border-destructive/40 shadow-[0_0_8px_rgba(239,68,68,0.1)]' : ''}`}
+                          >
                             <div className="flex items-start justify-between mb-1.5">
                               <p className="font-semibold text-sm leading-tight text-foreground/90">{c.nome}</p>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 -mt-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
+                              <Select value={c.etapa} onValueChange={(v) => moverFunil(c.id, v as Etapa)}>
+                                <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" hideIcon>
+                                  <MoreHorizontal className="h-3.5 w-3.5 mx-auto" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {columns.map(k => <SelectItem key={k.key} value={k.key} className="text-xs">{k.title}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                             </div>
                             
                             {c.destino && <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1"><Target className="h-3 w-3" /> {c.destino}</p>}
@@ -1425,6 +1512,72 @@ export default function CRM() {
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar Mensagem"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Dialog Mensagem Inbox (Virtual Card) */}
+      <Dialog open={virtualMsgDialog} onOpenChange={setVirtualMsgDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Detalhes da Mensagem</DialogTitle>
+          </DialogHeader>
+          {selectedVirtualMsg && (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-12 w-12 rounded-full bg-gradient-gold text-primary-foreground flex items-center justify-center font-bold">
+                  <UserPlus className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="font-semibold text-lg">{selectedVirtualMsg.name}</p>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Phone className="h-3 w-3" /> {selectedVirtualMsg.cleanPhone}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-card-elevated p-4 rounded-xl border border-border/50 relative">
+                {virtualMsgLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Buscando mensagem...
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap">{selectedVirtualMsg.text}</p>
+                    {selectedVirtualMsg.time && (
+                      <p className="text-[10px] text-muted-foreground mt-2 text-right">{selectedVirtualMsg.time}</p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  className="flex-1 bg-gradient-gold text-primary-foreground" 
+                  onClick={() => {
+                    setVirtualMsgDialog(false);
+                    setTab("inbox");
+                    loadChat(selectedVirtualMsg.cleanPhone);
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Abrir Chat
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setVirtualMsgDialog(false);
+                    setCNome(selectedVirtualMsg.name === selectedVirtualMsg.cleanPhone ? "" : selectedVirtualMsg.name);
+                    setCTelefone(selectedVirtualMsg.cleanPhone);
+                    setCWhats(selectedVirtualMsg.cleanPhone);
+                    setClienteDialog(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Salvar Lead
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

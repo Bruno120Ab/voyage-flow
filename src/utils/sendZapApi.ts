@@ -38,10 +38,16 @@ export const sendText = async (message: WhatsAppMessage): Promise<any> => {
   }
 };
 
-export const getMessagesChat = async (phone: string): Promise<any> => {
+export const getMessagesChat = async (phone: string, count?: number | string): Promise<any> => {
   const url = "/api-brasil/api/v2/whatsapp/getMessagesChat";
   try {
-    const response: AxiosResponse = await axios.post(url, { phone }, { headers });
+    const payload = {
+      number: phone,
+      direction: "before",
+      count: 5,
+      homolog: false
+    };
+    const response: AxiosResponse = await axios.post(url, payload, { headers });
     return response.data;
   } catch (error: any) {
     console.error("getMessagesChat Error:", error.response?.data || error.message);
