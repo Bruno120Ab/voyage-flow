@@ -460,6 +460,19 @@ export default function CRM() {
     if (error) toast.error(error.message);
   };
 
+  const excluirLead = async (l: Lead) => {
+    if (!confirm(`Excluir o cliente "${l.nome}" do kanban? Esta ação não pode ser desfeita.`)) return;
+    const prev = leads;
+    setLeads(curr => curr.filter(x => x.id !== l.id));
+    const { error } = await supabase.from("leads").delete().eq("id", l.id);
+    if (error) {
+      setLeads(prev);
+      toast.error(error.message.includes("policy") ? "Apenas administradores podem excluir clientes." : error.message);
+    } else {
+      toast.success("Cliente excluído");
+    }
+  };
+
   const moverFunil = async (leadId: string, novaEtapa: Etapa) => {
     // Atualização otimista local para reatividade 100% instantânea
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, etapa: novaEtapa } : l));
