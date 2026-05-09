@@ -1238,7 +1238,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                             <div className="flex items-start justify-between mb-1.5">
                               <p className="font-semibold text-sm leading-tight text-foreground/90">{c.nome}</p>
                               <Select value={c.etapa} onValueChange={(v) => moverFunil(c.id, v as Etapa)}>
-                                <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" hideIcon>
+                                <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto [&>svg]:hidden">
                                   <MoreHorizontal className="h-3.5 w-3.5 mx-auto" />
                                 </SelectTrigger>
                                 <SelectContent>
