@@ -836,10 +836,12 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.hex }}></span>
                         {col.title}
                       </h3>
-                      <Badge variant="secondary" className="text-xs bg-background/50">{col.key.length}</Badge>
+                      <Badge variant="secondary" className="text-xs bg-background/50">
+                        {cards.length + (col.key === "nao_atendido" ? (Array.isArray(inboxMessages) ? inboxMessages.length : 0) : 0)}
+                      </Badge>
                     </div>
                     <div className="space-y-2 overflow-y-auto pr-1 flex-1 scrollbar-thin">
-                      {col.key.length === 0 && (
+                      {cards.length === 0 && !(col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.length > 0) && (
                         <p className="text-[11px] text-muted-foreground/60 text-center py-6 border border-dashed border-border/50 rounded-lg">Vazio</p>
                       )}
                       {cards.map(c => {
