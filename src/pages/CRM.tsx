@@ -878,6 +878,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:bg-emerald-500/10" onClick={() => abrirZap(c)} title="Disparar Mensagem API"><Inbox className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={() => abrirEmbarque(c)} title="Novo embarque"><Bus className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-accent/10" onClick={() => abrirHistorico(c)} title="Histórico"><Users className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => excluirLead(c)} title="Excluir cliente"><Trash2 className="h-3.5 w-3.5" /></Button>
                               <Select value={(c as any).kanban_status || "nao_atendido"} onValueChange={(v) => moverKanban(c.id, v as KanbanStatus)}>
                                 <SelectTrigger className="h-7 ml-auto text-[10px] w-auto px-2 border-border/50"><SelectValue /></SelectTrigger>
                                 <SelectContent>
