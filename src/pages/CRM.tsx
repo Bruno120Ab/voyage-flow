@@ -1082,7 +1082,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
   ]}
 />
                     <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
-                      {metrics.chartData.map((entry, index) => (
+                      {contatosPorHora.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.hex} />
                       ))}
                     </Bar>
