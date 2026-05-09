@@ -836,10 +836,12 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.hex }}></span>
                         {col.title}
                       </h3>
-                      <Badge variant="secondary" className="text-xs bg-background/50">{col.key.length}</Badge>
+                      <Badge variant="secondary" className="text-xs bg-background/50">
+                        {cards.length + (col.key === "nao_atendido" ? (Array.isArray(inboxMessages) ? inboxMessages.length : 0) : 0)}
+                      </Badge>
                     </div>
                     <div className="space-y-2 overflow-y-auto pr-1 flex-1 scrollbar-thin">
-                      {col.key.length === 0 && (
+                      {cards.length === 0 && !(col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.length > 0) && (
                         <p className="text-[11px] text-muted-foreground/60 text-center py-6 border border-dashed border-border/50 rounded-lg">Vazio</p>
                       )}
                       {cards.map(c => {
@@ -1080,7 +1082,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
   ]}
 />
                     <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
-                      {metrics.chartData.map((entry, index) => (
+                      {contatosPorHora.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.hex} />
                       ))}
                     </Bar>
@@ -1110,85 +1112,66 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                   </div>
                   
                 ))} */}
-                {metrics.topOps
-  .filter((op) =>
-    op.nome?.toUpperCase().includes("PS")
-  )
-  .length === 0 ? (
-    <p className="text-sm text-muted-foreground text-center py-6">
-      Nenhum cliente PS encontrado.
-    </p>
-  ) : (
-  metrics.topOps
-  .filter((op) => {
-    const nome = (op.nome || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toUpperCase();
-
-    return (
-      nome.includes(" PS ") ||
-      nome.startsWith("PS ") ||
-      nome.endsWith(" PS") ||
-      nome.includes("[PS]") ||
-      nome.includes("(PS)") ||
-      nome.includes("-PS") ||
-      nome.includes("PS-") ||
-      nome.includes("PS:")
-    );
-  })
-      .map((op, i) => (
-        <div
-          key={op.id}
-          className="
-            p-3 rounded-lg border
-            border-emerald-500/20
-            bg-emerald-500/5
-            flex justify-between items-center
-            hover:border-emerald-500/40
-            transition-colors
-          "
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="font-medium text-sm truncate text-emerald-600">
-                {op.nome}
-              </p>
-
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                CLIENTE
-              </span>
-            </div>
-
-            <p className="text-xs text-muted-foreground capitalize">
-              {op.etapa.replace("_", " ")}
-            </p>
-          </div>
-
-          <div className="text-right shrink-0 ml-3">
-            <p className="font-bold text-sm text-gradient-gold">
-              R${" "}
-              {Number(
-                op.valor_estimado
-              ).toLocaleString("pt-BR")}
-            </p>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() =>
-                openWhats(
-                  op.whatsapp || op.telefone
-                )
-              }
-            >
-              <MessageCircle className="h-3 w-3 text-success" />
-            </Button>
-          </div>
-        </div>
-      ))
-)}
+                {metrics.topOps.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Nenhuma oportunidade ativa com valor.
+                  </p>
+                ) : (
+                  metrics.topOps.map((op) => {
+                    const nomeNorm = (op.nome || "")
+                      .normalize("NFD")
+                      .replace(/[\u0300-\u036f]/g, "")
+                      .toUpperCase();
+                    const isPS =
+                      nomeNorm.includes(" PS ") ||
+                      nomeNorm.startsWith("PS ") ||
+                      nomeNorm.endsWith(" PS") ||
+                      nomeNorm.includes("[PS]") ||
+                      nomeNorm.includes("(PS)") ||
+                      nomeNorm.includes("-PS") ||
+                      nomeNorm.includes("PS-") ||
+                      nomeNorm.includes("PS:");
+                    return (
+                      <div
+                        key={op.id}
+                        className={`p-3 rounded-lg border flex justify-between items-center transition-colors ${
+                          isPS
+                            ? "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40"
+                            : "border-border/50 bg-card-elevated/30 hover:border-primary/40"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className={`font-medium text-sm truncate ${isPS ? "text-emerald-600" : ""}`}>
+                              {op.nome}
+                            </p>
+                            {isPS && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                CLIENTE
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {op.etapa.replace("_", " ")}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0 ml-3 flex items-center gap-2">
+                          <p className="font-bold text-sm text-gradient-gold">
+                            R$ {Number(op.valor_estimado).toLocaleString("pt-BR")}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => openWhats(op.whatsapp || op.telefone)}
+                          >
+                            <MessageCircle className="h-3 w-3 text-success" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1236,7 +1219,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                             <div className="flex items-start justify-between mb-1.5">
                               <p className="font-semibold text-sm leading-tight text-foreground/90">{c.nome}</p>
                               <Select value={c.etapa} onValueChange={(v) => moverFunil(c.id, v as Etapa)}>
-                                <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" hideIcon>
+                                <SelectTrigger className="h-6 w-6 p-0 border-0 bg-transparent text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto [&>svg]:hidden">
                                   <MoreHorizontal className="h-3.5 w-3.5 mx-auto" />
                                 </SelectTrigger>
                                 <SelectContent>
