@@ -438,6 +438,7 @@ export default function Embarques() {
             </Button>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="space-y-4">
