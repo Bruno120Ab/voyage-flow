@@ -17,6 +17,7 @@ import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { sendText, getAllNewMessages, getMessagesChat } from "@/utils/sendZapApi";
 import { renderClientName } from "@/utils/nameClient";
+import EmbarqueAlertsSettings from "@/components/EmbarqueAlertsSettings";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type Etapa = Database["public"]["Enums"]["lead_etapa"];
