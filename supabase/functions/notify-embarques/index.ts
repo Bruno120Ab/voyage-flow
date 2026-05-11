@@ -54,30 +54,36 @@ Deno.serve(async (req) => {
 
   const minutos = Math.max(1, Number(cfg.minutos_antes) || 10);
 
-  const hoje = new Date().toISOString().slice(0, 10);
-  const { data: rows, error } = await sa
-    .from("embarques_dia")
-    .select("*")
-    .eq("data_operacao", hoje)
-    .eq("notificado_10min", false)
-    .eq("passou", false);
-
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const now = Date.now();
-  const sent: string[] = [];
-
-  for (const r of rows ?? []) {
-    const saida = parseHora(r.data_operacao, r.hora_saida_prevista);
-    if (!saida) continue;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const sent: { source: string; id: string }[] = [];
+  const sendWhats = async (texto: string) => {
+    let okAny = false;
+    for (const number of cfg.contatos) {
+      try {
+        const resp = await fetch("https://gateway.apibrasil.io/api/v2/whatsapp/sendText", {
+          method: "POST", headers: apiHeaders,
+          body: JSON.stringify({ number, text: texto }),
+        });
+        if (resp.ok) okAny = true;
+        else console.error("sendText falhou", number, resp.status, await resp.text());
+      } catch (e) { console.error("erro envio", number, e); }
+    }
+    return okAny;
+  };
+  const inWindow = (saida: Date) => {
     const diffMin = (saida.getTime() - now) / 60000;
-    // Janela: ±2 min em torno do alvo
-    if (diffMin > minutos + 2 || diffMin < minutos - 2) continue;
+    return diffMin <= minutos + 2 && diffMin >= minutos - 2;
+  };
 
+  // ===== embarques_dia =====
+  const { data: rowsDia } = await sa
+    .from("embarques_dia").select("*")
+    .eq("data_operacao", hoje).eq("notificado_10min", false).eq("passou", false);
+
+  for (const r of rowsDia ?? []) {
+    const saida = parseHora(r.data_operacao, r.hora_saida_prevista);
+    if (!saida || !inWindow(saida)) continue;
     const horaFmt = r.hora_saida_prevista || saida.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const texto =
 `⏰ *Alerta de Embarque - ${minutos} min*
@@ -90,28 +96,46 @@ Deno.serve(async (req) => {
 🎯 Destino: ${r.cidade_destino || "--"}
 👨‍✈️ Motorista: ${r.motorista || "Não informado"}
 ${r.cliente_nome ? `👤 Cliente: ${r.cliente_nome}\n` : ""}${r.observacao ? `📝 Obs: ${r.observacao}` : ""}`.trim();
-
-    let okAny = false;
-    for (const number of cfg.contatos) {
-      try {
-        const resp = await fetch("https://gateway.apibrasil.io/api/v2/whatsapp/sendText", {
-          method: "POST",
-          headers: apiHeaders,
-          body: JSON.stringify({ number, text: texto }),
-        });
-        if (resp.ok) okAny = true;
-        else console.error("sendText falhou", number, r.id, resp.status, await resp.text());
-      } catch (e) {
-        console.error("erro envio", number, r.id, e);
-      }
-    }
-    if (okAny) {
+    if (await sendWhats(texto)) {
       await sa.from("embarques_dia").update({ notificado_10min: true }).eq("id", r.id);
-      sent.push(r.id);
+      sent.push({ source: "embarques_dia", id: r.id });
     }
   }
 
-  return new Response(JSON.stringify({ checked: rows?.length ?? 0, sent, minutos, contatos: cfg.contatos.length }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  // ===== embarques (aba Embarques) =====
+  const inicio = new Date(now - 60 * 60_000).toISOString();
+  const fim = new Date(now + (minutos + 5) * 60_000).toISOString();
+  const { data: rowsEmb } = await sa
+    .from("embarques")
+    .select("id,origem,destino,local_embarque,data_saida,status,observacoes,veiculos(placa,modelo)")
+    .eq("notificado_alerta", false)
+    .neq("status", "cancelado")
+    .neq("status", "finalizado")
+    .gte("data_saida", inicio)
+    .lte("data_saida", fim);
+
+  for (const e of rowsEmb ?? []) {
+    const saida = new Date(e.data_saida);
+    if (isNaN(saida.getTime()) || !inWindow(saida)) continue;
+    const horaFmt = saida.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bahia" });
+    const dataFmt = saida.toLocaleDateString("pt-BR", { timeZone: "America/Bahia" });
+    const v: any = (e as any).veiculos;
+    const texto =
+`⏰ *Alerta de Embarque - ${minutos} min*
+
+🚏 Origem: ${e.origem || "--"}
+🎯 Destino: ${e.destino || "--"}
+🕒 Saída: ${dataFmt} às ${horaFmt}
+${e.local_embarque ? `📍 Local: ${e.local_embarque}\n` : ""}${v?.placa ? `🚌 Veículo: ${v.placa}${v.modelo ? " - " + v.modelo : ""}\n` : ""}📌 Status: ${e.status || "--"}`.trim();
+    if (await sendWhats(texto)) {
+      await sa.from("embarques").update({ notificado_alerta: true }).eq("id", e.id);
+      sent.push({ source: "embarques", id: e.id });
+    }
+  }
+
+  return new Response(JSON.stringify({
+    checkedDia: rowsDia?.length ?? 0,
+    checkedEmb: rowsEmb?.length ?? 0,
+    sent, minutos, contatos: cfg.contatos.length,
+  }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
