@@ -1,0 +1,6 @@
+
+ALTER TABLE public.embarques_dia
+  ADD COLUMN IF NOT EXISTS notificado_10min boolean NOT NULL DEFAULT false;
+
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
