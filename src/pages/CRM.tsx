@@ -742,6 +742,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
           <h1 className="font-display text-2xl sm:text-3xl font-bold">Inteligência de Vendas</h1>
           <p className="text-muted-foreground mt-1">Visão completa de performance, funil e contatos do dia.</p>
         </div>
+        <EmbarqueAlertsSettings />
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-6">
