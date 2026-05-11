@@ -1,1 +1,4 @@
 project_id = "nrsmuxrwhmqkyyeddmrm"
+
+[functions.notify-embarques]
+verify_jwt = false
