@@ -1,12 +1,10 @@
-// Notifica via WhatsApp 10 min antes da saída de embarques_dia
+// Notifica via WhatsApp N min antes da saída de embarques_dia (configurável em app_config)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const NOTIFY_NUMBER = "5577991157974";
 
 const apiHeaders = {
   "Content-Type": "application/json",
@@ -16,12 +14,22 @@ const apiHeaders = {
   Authorization: `Bearer ${Deno.env.get("APIBRASIL_BEARER") ?? ""}`,
 };
 
+interface AlertsCfg {
+  enabled: boolean;
+  minutos_antes: number;
+  contatos: string[];
+}
+const DEFAULT_CFG: AlertsCfg = {
+  enabled: true,
+  minutos_antes: 10,
+  contatos: ["5577991157974"],
+};
+
 function parseHora(dataOp: string, hhmm: string): Date | null {
   if (!hhmm) return null;
   const m = String(hhmm).match(/(\d{1,2})[:h.]?(\d{2})/);
   if (!m) return null;
   const [_, h, mi] = m;
-  // Brasil = UTC-3. Construímos a data no fuso de São Paulo convertendo p/ UTC.
   const d = new Date(`${dataOp}T${h.padStart(2, "0")}:${mi}:00-03:00`);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -33,6 +41,18 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  // Carrega config
+  const { data: cfgRow } = await sa.from("app_config").select("valor").eq("chave", "embarque_alerts").maybeSingle();
+  const cfg: AlertsCfg = { ...DEFAULT_CFG, ...((cfgRow?.valor as any) ?? {}) };
+
+  if (!cfg.enabled || !cfg.contatos?.length) {
+    return new Response(JSON.stringify({ skipped: true, reason: "disabled or no contacts" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const minutos = Math.max(1, Number(cfg.minutos_antes) || 10);
 
   const hoje = new Date().toISOString().slice(0, 10);
   const { data: rows, error } = await sa
@@ -55,12 +75,12 @@ Deno.serve(async (req) => {
     const saida = parseHora(r.data_operacao, r.hora_saida_prevista);
     if (!saida) continue;
     const diffMin = (saida.getTime() - now) / 60000;
-    // Janela: entre 8 e 12 minutos antes
-    if (diffMin > 12 || diffMin < 8) continue;
+    // Janela: ±2 min em torno do alvo
+    if (diffMin > minutos + 2 || diffMin < minutos - 2) continue;
 
     const horaFmt = r.hora_saida_prevista || saida.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const texto =
-`⏰ *Alerta de Embarque - 10 min*
+`⏰ *Alerta de Embarque - ${minutos} min*
 
 🚌 Carro: ${r.carro || "--"}
 📍 Linha: ${r.rota || "--"}
@@ -71,24 +91,27 @@ Deno.serve(async (req) => {
 👨‍✈️ Motorista: ${r.motorista || "Não informado"}
 ${r.cliente_nome ? `👤 Cliente: ${r.cliente_nome}\n` : ""}${r.observacao ? `📝 Obs: ${r.observacao}` : ""}`.trim();
 
-    try {
-      const resp = await fetch("https://gateway.apibrasil.io/api/v2/whatsapp/sendText", {
-        method: "POST",
-        headers: apiHeaders,
-        body: JSON.stringify({ number: NOTIFY_NUMBER, text: texto }),
-      });
-      if (resp.ok) {
-        await sa.from("embarques_dia").update({ notificado_10min: true }).eq("id", r.id);
-        sent.push(r.id);
-      } else {
-        console.error("sendText falhou", r.id, resp.status, await resp.text());
+    let okAny = false;
+    for (const number of cfg.contatos) {
+      try {
+        const resp = await fetch("https://gateway.apibrasil.io/api/v2/whatsapp/sendText", {
+          method: "POST",
+          headers: apiHeaders,
+          body: JSON.stringify({ number, text: texto }),
+        });
+        if (resp.ok) okAny = true;
+        else console.error("sendText falhou", number, r.id, resp.status, await resp.text());
+      } catch (e) {
+        console.error("erro envio", number, r.id, e);
       }
-    } catch (e) {
-      console.error("erro envio", r.id, e);
+    }
+    if (okAny) {
+      await sa.from("embarques_dia").update({ notificado_10min: true }).eq("id", r.id);
+      sent.push(r.id);
     }
   }
 
-  return new Response(JSON.stringify({ checked: rows?.length ?? 0, sent }), {
+  return new Response(JSON.stringify({ checked: rows?.length ?? 0, sent, minutos, contatos: cfg.contatos.length }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

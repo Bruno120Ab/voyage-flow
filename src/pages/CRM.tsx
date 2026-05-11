@@ -17,6 +17,7 @@ import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { sendText, getAllNewMessages, getMessagesChat } from "@/utils/sendZapApi";
 import { renderClientName } from "@/utils/nameClient";
+import EmbarqueAlertsSettings from "@/components/EmbarqueAlertsSettings";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type Etapa = Database["public"]["Enums"]["lead_etapa"];
@@ -742,6 +743,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
           <h1 className="font-display text-2xl sm:text-3xl font-bold">Inteligência de Vendas</h1>
           <p className="text-muted-foreground mt-1">Visão completa de performance, funil e contatos do dia.</p>
         </div>
+        <EmbarqueAlertsSettings />
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="space-y-6">
