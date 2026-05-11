@@ -263,6 +263,7 @@ export type Database = {
           lead_id: string | null
           local_embarque: string | null
           motorista: string | null
+          notificado_10min: boolean
           observacao: string | null
           passou: boolean
           previsao_chegada: string | null
@@ -291,6 +292,7 @@ export type Database = {
           lead_id?: string | null
           local_embarque?: string | null
           motorista?: string | null
+          notificado_10min?: boolean
           observacao?: string | null
           passou?: boolean
           previsao_chegada?: string | null
@@ -319,6 +321,7 @@ export type Database = {
           lead_id?: string | null
           local_embarque?: string | null
           motorista?: string | null
+          notificado_10min?: boolean
           observacao?: string | null
           passou?: boolean
           previsao_chegada?: string | null
