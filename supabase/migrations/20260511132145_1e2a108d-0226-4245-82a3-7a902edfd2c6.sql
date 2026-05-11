@@ -1,0 +1,1 @@
+ALTER TABLE public.embarques ADD COLUMN IF NOT EXISTS notificado_alerta boolean NOT NULL DEFAULT false;

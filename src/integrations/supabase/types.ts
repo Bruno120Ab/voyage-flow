@@ -192,6 +192,7 @@ export type Database = {
           destino: string
           id: string
           local_embarque: string | null
+          notificado_alerta: boolean
           observacoes: string | null
           origem: string
           pagamento_status: Database["public"]["Enums"]["pagamento_status"]
@@ -209,6 +210,7 @@ export type Database = {
           destino: string
           id?: string
           local_embarque?: string | null
+          notificado_alerta?: boolean
           observacoes?: string | null
           origem: string
           pagamento_status?: Database["public"]["Enums"]["pagamento_status"]
@@ -226,6 +228,7 @@ export type Database = {
           destino?: string
           id?: string
           local_embarque?: string | null
+          notificado_alerta?: boolean
           observacoes?: string | null
           origem?: string
           pagamento_status?: Database["public"]["Enums"]["pagamento_status"]
