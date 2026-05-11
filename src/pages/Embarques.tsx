@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { sendText } from "@/utils/sendZapApi";
 import { toast } from "sonner";
 import { z } from "zod";
+import EmbarqueAlertsSettings from "@/components/EmbarqueAlertsSettings";
 
 type EStatus = "rascunho" | "confirmado" | "pendente" | "em_rota" | "finalizado" | "cancelado";
 type PStatus = "pendente" | "parcial" | "pago";
