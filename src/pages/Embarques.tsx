@@ -184,6 +184,9 @@ export default function Embarques() {
       status: e.status,
       observacoes: meta.observacoes,
       rota: meta.rota,
+      alerta_enabled: meta.alerta_enabled !== false,
+      alerta_minutos: meta.alerta_minutos ?? 10,
+      alerta_contatos: meta.alerta_contatos?.length ? meta.alerta_contatos : [DEFAULT_ALERTA_CONTATO],
     });
     setOpen(true);
   };
