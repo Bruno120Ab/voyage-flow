@@ -252,7 +252,8 @@ export default function Embarques() {
 
   const resetForm = () => {
     setEditingId(null);
-    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "none", servico_id: "none", status: "rascunho", observacoes: "", rota: "nenhuma" });
+    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "none", servico_id: "none", status: "rascunho", observacoes: "", rota: "nenhuma", alerta_enabled: true, alerta_minutos: 10, alerta_contatos: [DEFAULT_ALERTA_CONTATO] });
+    setNovoContato("");
   };
 
   const openDetails = (e: Embarque) => {
