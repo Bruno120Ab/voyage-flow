@@ -134,7 +134,11 @@ export default function Embarques() {
     valor_operacao: "0", custo_operacao: "0",
     veiculo_id: "none", servico_id: "none", status: "rascunho" as EStatus, observacoes: "",
     rota: "nenhuma",
+    alerta_enabled: true,
+    alerta_minutos: 10,
+    alerta_contatos: [DEFAULT_ALERTA_CONTATO] as string[],
   });
+  const [novoContato, setNovoContato] = useState("");
 
   const load = async () => {
     setLoading(true);
