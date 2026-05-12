@@ -453,6 +453,77 @@ export default function Embarques() {
                 <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm(f => ({...f, observacoes: e.target.value}))} rows={2} /></div>
               </div>
             </div>
+
+            {/* Alerta WhatsApp deste embarque */}
+            <div className="mt-4 rounded-lg border border-border/60 p-4 space-y-3 bg-card-elevated/40">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <BellRing className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">Alerta WhatsApp antes da saída</p>
+                    <p className="text-xs text-muted-foreground">Configurado especificamente para este embarque.</p>
+                  </div>
+                </div>
+                <Switch checked={form.alerta_enabled} onCheckedChange={(v) => setForm(f => ({ ...f, alerta_enabled: v }))} />
+              </div>
+
+              {form.alerta_enabled && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-1">
+                    <Label>Minutos antes</Label>
+                    <Input
+                      type="number" min={1} max={240}
+                      value={form.alerta_minutos}
+                      onChange={(e) => setForm(f => ({ ...f, alerta_minutos: Math.max(1, Math.min(240, Number(e.target.value) || 10)) }))}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Contatos (WhatsApp)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Ex: 5577991157974"
+                        value={novoContato}
+                        onChange={(e) => setNovoContato(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const n = novoContato.replace(/\D/g, "");
+                            if (n.length < 10) { toast.error("Telefone inválido"); return; }
+                            if (form.alerta_contatos.includes(n)) { toast.error("Já adicionado"); return; }
+                            setForm(f => ({ ...f, alerta_contatos: [...f.alerta_contatos, n] }));
+                            setNovoContato("");
+                          }
+                        }}
+                      />
+                      <Button type="button" size="icon" onClick={() => {
+                        const n = novoContato.replace(/\D/g, "");
+                        if (n.length < 10) { toast.error("Telefone inválido"); return; }
+                        if (form.alerta_contatos.includes(n)) { toast.error("Já adicionado"); return; }
+                        setForm(f => ({ ...f, alerta_contatos: [...f.alerta_contatos, n] }));
+                        setNovoContato("");
+                      }}><Plus className="h-4 w-4" /></Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {form.alerta_contatos.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">Nenhum contato — alerta não será enviado.</p>
+                      )}
+                      {form.alerta_contatos.map((n) => (
+                        <Badge key={n} variant="outline" className="font-mono gap-1.5 pr-1">
+                          {n}
+                          <button
+                            type="button"
+                            className="ml-1 rounded-sm hover:bg-destructive/20 text-destructive p-0.5"
+                            onClick={() => setForm(f => ({ ...f, alerta_contatos: f.alerta_contatos.filter(x => x !== n) }))}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <Button onClick={handleSave} disabled={saving} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 mt-2">
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar embarque
             </Button>
