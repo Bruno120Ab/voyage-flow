@@ -394,7 +394,6 @@ export default function Embarques() {
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">Dashboard, calendário e checklist por passageiro — nada escapa.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-        <EmbarqueAlertsSettings />
         <Dialog open={open} onOpenChange={(val) => { setOpen(val); if(!val) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow"><Plus className="h-4 w-4 mr-2" />Novo embarque</Button>
