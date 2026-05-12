@@ -63,10 +63,16 @@ interface Meta {
   classe?: string;
   comodidades?: string[];
   servico_id?: string;
+  alerta_enabled?: boolean;
+  alerta_minutos?: number;
+  alerta_contatos?: string[];
 }
 
+const DEFAULT_ALERTA_CONTATO = "5577991157974";
+
 const parseMeta = (obs: string | null): Meta => {
-  if (!obs) return { observacoes: "", rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none" };
+  const base: Meta = { observacoes: "", rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none", alerta_enabled: true, alerta_minutos: 10, alerta_contatos: [DEFAULT_ALERTA_CONTATO] };
+  if (!obs) return base;
   try {
     const data = JSON.parse(obs);
     if (data.isJsonMeta) {
@@ -76,10 +82,13 @@ const parseMeta = (obs: string | null): Meta => {
         classe: data.classe || "Convencional",
         comodidades: data.comodidades || [],
         servico_id: data.servico_id || "none",
+        alerta_enabled: data.alerta_enabled !== false,
+        alerta_minutos: Number(data.alerta_minutos) > 0 ? Number(data.alerta_minutos) : 10,
+        alerta_contatos: Array.isArray(data.alerta_contatos) && data.alerta_contatos.length ? data.alerta_contatos : [DEFAULT_ALERTA_CONTATO],
       };
     }
   } catch (e) {}
-  return { observacoes: obs, rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none" };
+  return { ...base, observacoes: obs };
 };
 
 const schema = z.object({
