@@ -102,9 +102,10 @@ ${r.cliente_nome ? `👤 Cliente: ${r.cliente_nome}\n` : ""}${r.observacao ? `�
     }
   }
 
-  // ===== embarques (aba Embarques) =====
+  // ===== embarques (aba Embarques) — config POR embarque (no campo observacoes JSON) =====
+  // Janela ampla: pegamos qualquer saída futura nas próximas 4h e filtramos pelo alerta_minutos individual.
   const inicio = new Date(now - 60 * 60_000).toISOString();
-  const fim = new Date(now + (minutos + 5) * 60_000).toISOString();
+  const fim = new Date(now + 240 * 60_000).toISOString();
   const { data: rowsEmb } = await sa
     .from("embarques")
     .select("id,origem,destino,local_embarque,data_saida,status,observacoes,veiculos(placa,modelo)")
@@ -116,18 +117,48 @@ ${r.cliente_nome ? `👤 Cliente: ${r.cliente_nome}\n` : ""}${r.observacao ? `�
 
   for (const e of rowsEmb ?? []) {
     const saida = new Date(e.data_saida);
-    if (isNaN(saida.getTime()) || !inWindow(saida)) continue;
+    if (isNaN(saida.getTime())) continue;
+
+    // parse meta deste embarque
+    let meta: any = null;
+    try { meta = e.observacoes ? JSON.parse(e.observacoes) : null; } catch { meta = null; }
+    const usaJson = meta?.isJsonMeta === true;
+
+    const enabled = usaJson ? (meta.alerta_enabled !== false) : cfg.enabled;
+    const minutosE = usaJson && Number(meta.alerta_minutos) > 0 ? Number(meta.alerta_minutos) : minutos;
+    const contatos: string[] = usaJson && Array.isArray(meta.alerta_contatos) && meta.alerta_contatos.length
+      ? meta.alerta_contatos
+      : cfg.contatos;
+    const obsTexto = usaJson ? (meta.observacoes || "") : (e.observacoes || "");
+
+    if (!enabled || !contatos.length) continue;
+
+    const diffMin = (saida.getTime() - now) / 60000;
+    if (!(diffMin <= minutosE + 2 && diffMin >= minutosE - 2)) continue;
+
     const horaFmt = saida.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Bahia" });
     const dataFmt = saida.toLocaleDateString("pt-BR", { timeZone: "America/Bahia" });
     const v: any = (e as any).veiculos;
     const texto =
-`⏰ *Alerta de Embarque - ${minutos} min*
+`⏰ *Alerta de Embarque - ${minutosE} min*
 
 🚏 Origem: ${e.origem || "--"}
 🎯 Destino: ${e.destino || "--"}
 🕒 Saída: ${dataFmt} às ${horaFmt}
-${e.local_embarque ? `📍 Local: ${e.local_embarque}\n` : ""}${v?.placa ? `🚌 Veículo: ${v.placa}${v.modelo ? " - " + v.modelo : ""}\n` : ""}📌 Status: ${e.status || "--"}`.trim();
-    if (await sendWhats(texto)) {
+${e.local_embarque ? `📍 Local: ${e.local_embarque}\n` : ""}${v?.placa ? `🚌 Veículo: ${v.placa}${v.modelo ? " - " + v.modelo : ""}\n` : ""}📌 Status: ${e.status || "--"}${obsTexto ? `\n📝 Obs: ${obsTexto}` : ""}`.trim();
+
+    let okAny = false;
+    for (const number of contatos) {
+      try {
+        const resp = await fetch("https://gateway.apibrasil.io/api/v2/whatsapp/sendText", {
+          method: "POST", headers: apiHeaders,
+          body: JSON.stringify({ number, text: texto }),
+        });
+        if (resp.ok) okAny = true;
+        else console.error("sendText falhou", number, resp.status, await resp.text());
+      } catch (err) { console.error("erro envio", number, err); }
+    }
+    if (okAny) {
       await sa.from("embarques").update({ notificado_alerta: true }).eq("id", e.id);
       sent.push({ source: "embarques", id: e.id });
     }

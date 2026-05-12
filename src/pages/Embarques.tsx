@@ -10,12 +10,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Loader2, Calendar, Clock, MapPin, MessageCircle, ChevronLeft, ChevronRight, Users, DollarSign, AlertCircle, CheckCircle2, Bus, UserPlus, Edit2, Trash2, Map, Wifi, Snowflake, Plug, Droplet, ArrowDownRight, ArrowUpRight, BellRing } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendText } from "@/utils/sendZapApi";
 import { toast } from "sonner";
 import { z } from "zod";
-import EmbarqueAlertsSettings from "@/components/EmbarqueAlertsSettings";
+
 
 type EStatus = "rascunho" | "confirmado" | "pendente" | "em_rota" | "finalizado" | "cancelado";
 type PStatus = "pendente" | "parcial" | "pago";
@@ -63,10 +64,16 @@ interface Meta {
   classe?: string;
   comodidades?: string[];
   servico_id?: string;
+  alerta_enabled?: boolean;
+  alerta_minutos?: number;
+  alerta_contatos?: string[];
 }
 
+const DEFAULT_ALERTA_CONTATO = "5577991157974";
+
 const parseMeta = (obs: string | null): Meta => {
-  if (!obs) return { observacoes: "", rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none" };
+  const base: Meta = { observacoes: "", rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none", alerta_enabled: true, alerta_minutos: 10, alerta_contatos: [DEFAULT_ALERTA_CONTATO] };
+  if (!obs) return base;
   try {
     const data = JSON.parse(obs);
     if (data.isJsonMeta) {
@@ -76,10 +83,13 @@ const parseMeta = (obs: string | null): Meta => {
         classe: data.classe || "Convencional",
         comodidades: data.comodidades || [],
         servico_id: data.servico_id || "none",
+        alerta_enabled: data.alerta_enabled !== false,
+        alerta_minutos: Number(data.alerta_minutos) > 0 ? Number(data.alerta_minutos) : 10,
+        alerta_contatos: Array.isArray(data.alerta_contatos) && data.alerta_contatos.length ? data.alerta_contatos : [DEFAULT_ALERTA_CONTATO],
       };
     }
   } catch (e) {}
-  return { observacoes: obs, rota: "nenhuma", classe: "Convencional", comodidades: [], servico_id: "none" };
+  return { ...base, observacoes: obs };
 };
 
 const schema = z.object({
@@ -125,7 +135,11 @@ export default function Embarques() {
     valor_operacao: "0", custo_operacao: "0",
     veiculo_id: "none", servico_id: "none", status: "rascunho" as EStatus, observacoes: "",
     rota: "nenhuma",
+    alerta_enabled: true,
+    alerta_minutos: 10,
+    alerta_contatos: [DEFAULT_ALERTA_CONTATO] as string[],
   });
+  const [novoContato, setNovoContato] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -171,6 +185,9 @@ export default function Embarques() {
       status: e.status,
       observacoes: meta.observacoes,
       rota: meta.rota,
+      alerta_enabled: meta.alerta_enabled !== false,
+      alerta_minutos: meta.alerta_minutos ?? 10,
+      alerta_contatos: meta.alerta_contatos?.length ? meta.alerta_contatos : [DEFAULT_ALERTA_CONTATO],
     });
     setOpen(true);
   };
@@ -194,6 +211,9 @@ export default function Embarques() {
       observacoes: form.observacoes,
       rota: form.rota,
       servico_id: form.servico_id !== "none" ? form.servico_id : undefined,
+      alerta_enabled: !!form.alerta_enabled,
+      alerta_minutos: Math.max(1, Math.min(240, Number(form.alerta_minutos) || 10)),
+      alerta_contatos: form.alerta_contatos.filter(Boolean),
     });
     
     let resolvedVeiculoId = form.veiculo_id && form.veiculo_id !== "none" ? form.veiculo_id : null;
@@ -236,7 +256,8 @@ export default function Embarques() {
 
   const resetForm = () => {
     setEditingId(null);
-    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "none", servico_id: "none", status: "rascunho", observacoes: "", rota: "nenhuma" });
+    setForm({ origem: "", destino: "", local_embarque: "", data_saida: "", data_retorno: "", valor_operacao: "0", custo_operacao: "0", veiculo_id: "none", servico_id: "none", status: "rascunho", observacoes: "", rota: "nenhuma", alerta_enabled: true, alerta_minutos: 10, alerta_contatos: [DEFAULT_ALERTA_CONTATO] });
+    setNovoContato("");
   };
 
   const openDetails = (e: Embarque) => {
@@ -373,7 +394,6 @@ export default function Embarques() {
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">Dashboard, calendário e checklist por passageiro — nada escapa.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-        <EmbarqueAlertsSettings />
         <Dialog open={open} onOpenChange={(val) => { setOpen(val); if(!val) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow"><Plus className="h-4 w-4 mr-2" />Novo embarque</Button>
@@ -432,6 +452,77 @@ export default function Embarques() {
                 </div>
                 <div><Label>Observações</Label><Textarea value={form.observacoes} onChange={e => setForm(f => ({...f, observacoes: e.target.value}))} rows={2} /></div>
               </div>
+            </div>
+
+            {/* Alerta WhatsApp deste embarque */}
+            <div className="mt-4 rounded-lg border border-border/60 p-4 space-y-3 bg-card-elevated/40">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <BellRing className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">Alerta WhatsApp antes da saída</p>
+                    <p className="text-xs text-muted-foreground">Configurado especificamente para este embarque.</p>
+                  </div>
+                </div>
+                <Switch checked={form.alerta_enabled} onCheckedChange={(v) => setForm(f => ({ ...f, alerta_enabled: v }))} />
+              </div>
+
+              {form.alerta_enabled && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-1">
+                    <Label>Minutos antes</Label>
+                    <Input
+                      type="number" min={1} max={240}
+                      value={form.alerta_minutos}
+                      onChange={(e) => setForm(f => ({ ...f, alerta_minutos: Math.max(1, Math.min(240, Number(e.target.value) || 10)) }))}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Contatos (WhatsApp)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Ex: 5577991157974"
+                        value={novoContato}
+                        onChange={(e) => setNovoContato(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const n = novoContato.replace(/\D/g, "");
+                            if (n.length < 10) { toast.error("Telefone inválido"); return; }
+                            if (form.alerta_contatos.includes(n)) { toast.error("Já adicionado"); return; }
+                            setForm(f => ({ ...f, alerta_contatos: [...f.alerta_contatos, n] }));
+                            setNovoContato("");
+                          }
+                        }}
+                      />
+                      <Button type="button" size="icon" onClick={() => {
+                        const n = novoContato.replace(/\D/g, "");
+                        if (n.length < 10) { toast.error("Telefone inválido"); return; }
+                        if (form.alerta_contatos.includes(n)) { toast.error("Já adicionado"); return; }
+                        setForm(f => ({ ...f, alerta_contatos: [...f.alerta_contatos, n] }));
+                        setNovoContato("");
+                      }}><Plus className="h-4 w-4" /></Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {form.alerta_contatos.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">Nenhum contato — alerta não será enviado.</p>
+                      )}
+                      {form.alerta_contatos.map((n) => (
+                        <Badge key={n} variant="outline" className="font-mono gap-1.5 pr-1">
+                          {n}
+                          <button
+                            type="button"
+                            className="ml-1 rounded-sm hover:bg-destructive/20 text-destructive p-0.5"
+                            onClick={() => setForm(f => ({ ...f, alerta_contatos: f.alerta_contatos.filter(x => x !== n) }))}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <Button onClick={handleSave} disabled={saving} className="w-full bg-gradient-gold text-primary-foreground hover:opacity-90 mt-2">
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar embarque
