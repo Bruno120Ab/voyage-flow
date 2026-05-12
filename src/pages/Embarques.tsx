@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Calendar, Clock, MapPin, MessageCircle, ChevronLeft, ChevronRight, Users, DollarSign, AlertCircle, CheckCircle2, Bus, UserPlus, Edit2, Trash2, Map, Wifi, Snowflake, Plug, Droplet, ArrowDownRight, ArrowUpRight, BellRing } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendText } from "@/utils/sendZapApi";
