@@ -210,6 +210,9 @@ export default function Embarques() {
       observacoes: form.observacoes,
       rota: form.rota,
       servico_id: form.servico_id !== "none" ? form.servico_id : undefined,
+      alerta_enabled: !!form.alerta_enabled,
+      alerta_minutos: Math.max(1, Math.min(240, Number(form.alerta_minutos) || 10)),
+      alerta_contatos: form.alerta_contatos.filter(Boolean),
     });
     
     let resolvedVeiculoId = form.veiculo_id && form.veiculo_id !== "none" ? form.veiculo_id : null;
