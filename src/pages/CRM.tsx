@@ -223,7 +223,6 @@ export default function CRM() {
     setInboxLoading(true);
     try {
       const msgs = await getAllNewMessages();
-      console.log(JSON.stringify(`A Mensagem é essa` + msgs));
       let arr = [];
       if (msgs && Array.isArray(msgs.contacts)) arr = msgs.contacts; // Padrão da APIBrasil (retorna 'contacts')
       else if (msgs && msgs.response && Array.isArray(msgs.response.contacts)) arr = msgs.response.contacts;
@@ -234,7 +233,35 @@ export default function CRM() {
       
       // Filtrar apenas conversas com isNewMsg === true ou não lidas (viewed === false)
       const unread = arr.filter((c: any) => c.isNewMsg || c.unreadCount > 0 || c.viewed === false);
-      setInboxMessages(unread.length > 0 ? unread : arr);
+      
+      const finalInbox = unread.length > 0 ? unread : arr;
+      setInboxMessages(finalInbox);
+
+      // Auto-move existing leads with unread messages to 'nao_atendido'
+      if (finalInbox.length > 0) {
+        const unreadPhones = finalInbox.map((m: any) => {
+          const p = m.phone || m.from || m.id?.split('@')[0] || "";
+          return (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
+        }).filter(Boolean);
+
+        if (unreadPhones.length > 0) {
+          setLeads(prev => {
+            let changed = false;
+            const updated = prev.map(l => {
+              const lPhone = (l.whatsapp || l.telefone || "").replace(/\D/g, "");
+              if (lPhone && unreadPhones.includes(lPhone) && (l as any).kanban_status !== "nao_atendido") {
+                changed = true;
+                // Update in DB async
+                supabase.from("leads").update({ kanban_status: "nao_atendido" } as any).eq("id", l.id).then(()=>{});
+                return { ...l, kanban_status: "nao_atendido" };
+              }
+              return l;
+            });
+            return changed ? updated : prev;
+          });
+        }
+      }
+
     } catch (e) {
       toast.error("Erro ao carregar caixa de entrada");
     } finally {
@@ -905,13 +932,16 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                         );
                       })}
                       {/* Virtual Cards from Inbox */}
-                      {col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.map((msg: any, i) => {
+                      {col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.filter((msg: any) => {
+                        const phone = msg.phone || msg.from || msg.id?.split('@')[0] || "";
+                        const cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+                        return !leads.some(l => (l.whatsapp || l.telefone || "").replace(/\D/g, "") === cleanPhone);
+                      }).map((msg: any, i) => {
                         const phone = msg.phone || msg.from || msg.id?.split('@')[0] || "Sem número";
                         const cleanPhone = phone.includes('@') ? phone.split('@')[0] : phone;
                         const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
                         const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
                         const time = msg.t ? new Date(msg.t * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";
-                        {console.log(msg)}
                         
                         return (
                           <Card

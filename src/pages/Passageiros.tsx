@@ -8,10 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Phone, MessageCircle, Search, Plus, Star, Loader2, Users, Flame, RotateCcw, Snowflake, ArrowRight, Edit2, Trash2, User, MapPin, DollarSign, TrendingUp, NotebookPen, CheckCircle2 } from "lucide-react";
+import { Phone, MessageCircle, Search, Plus, Star, Loader2, Users, Flame, RotateCcw, Snowflake, ArrowRight, Edit2, Trash2, User, MapPin, DollarSign, TrendingUp, NotebookPen, CheckCircle2, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
+import { sendText } from "@/utils/sendZapApi";
 
 type Tag = "novo" | "recorrente" | "vip" | "retorno" | "inativo" | "quente";
 interface Passageiro {
@@ -456,10 +457,32 @@ function StatCard({ icon, label, value, accent, active, onClick, pipeline }: { i
 }
 
 function ActionGrid({ items, emptyMsg }: { items: ActionItem[]; emptyMsg: string }) {
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
+  const handleSendZap = async (it: ActionItem) => {
+    const number = onlyDigits(it.whatsapp ?? it.telefone);
+    if (!number) {
+      toast.error("Número de telefone inválido.");
+      return;
+    }
+
+    setSendingId(it.id);
+    try {
+      // Usa DDI 55 caso não tenha e envia
+      const formattedNum = number.startsWith("55") ? number : `55${number}`;
+      await sendText({ number: formattedNum, text: it.msg });
+      toast.success("Mensagem enviada com sucesso!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao enviar a mensagem pelo WhatsApp.");
+    } finally {
+      setSendingId(null);
+    }
+  };
+
   if (items.length === 0) {
     return (
       <Card className="glass-card p-16 text-center flex flex-col items-center justify-center text-muted-foreground">
-        {/* <CheckCircle2 className="h-12 w-12 text-muted-foreground/30 mb-4" /> */}
         <h3 className="text-lg font-display font-semibold text-foreground">Tudo limpo por aqui!</h3>
         <p className="text-sm">{emptyMsg}</p>
       </Card>
@@ -513,21 +536,31 @@ function ActionGrid({ items, emptyMsg }: { items: ActionItem[]; emptyMsg: string
               </div>
             )}
             
-            <div className="mt-auto flex gap-2">
-              {wa ? (
-                <a href={wa} target="_blank" rel="noreferrer" className="flex-1">
-                  <Button className="w-full h-10 bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow rounded-xl font-semibold">
-                    <MessageCircle className="h-4 w-4 mr-2" />Contato <ArrowRight className="h-4 w-4 ml-1 opacity-60" />
-                  </Button>
-                </a>
-              ) : (
-                <Button disabled className="flex-1 h-10 rounded-xl bg-muted text-muted-foreground">Sem WhatsApp</Button>
-              )}
-              {it.telefone && (
-                <a href={`tel:${it.telefone}`}>
-                  <Button variant="outline" className="border-border h-10 w-10 p-0 rounded-xl hover:bg-primary/5 hover:text-primary"><Phone className="h-4 w-4" /></Button>
-                </a>
-              )}
+            <div className="mt-auto flex flex-col gap-2">
+              {/* Oculto o input por enquanto e envio a msg padrao, mas podemos por um Popover futuramente */}
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => handleSendZap(it)}
+                  disabled={sendingId === it.id || (!it.telefone && !it.whatsapp)} 
+                  className="flex-1 h-10 bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow rounded-xl font-semibold"
+                >
+                  {sendingId === it.id ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</>
+                  ) : (
+                    <><Send className="h-4 w-4 mr-2" /> Enviar Oferta</>
+                  )}
+                </Button>
+                {wa && (
+                  <a href={wa} target="_blank" rel="noreferrer">
+                    <Button variant="outline" className="border-border h-10 w-10 p-0 rounded-xl hover:bg-primary/5 hover:text-primary" title="Abrir no WhatsApp Web"><MessageCircle className="h-4 w-4" /></Button>
+                  </a>
+                )}
+                {it.telefone && (
+                  <a href={`tel:${it.telefone}`}>
+                    <Button variant="outline" className="border-border h-10 w-10 p-0 rounded-xl hover:bg-primary/5 hover:text-primary"><Phone className="h-4 w-4" /></Button>
+                  </a>
+                )}
+              </div>
             </div>
           </Card>
         );

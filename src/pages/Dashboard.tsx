@@ -7,9 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sendText } from "@/utils/sendZapApi";
-
-interface DashboardStats {
+import { sendText, getAllContacts, getAllLabels } from "@/utils/sendZapApi";interface DashboardStats {
   faturamentoMes: number;
   custoMes: number;
   lucroMes: number;
@@ -55,8 +53,8 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
       const monthStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
       const today = new Date().toISOString().slice(0, 10);
 
-      const [embMonth, embFuture, pax, lds, veics, embDiaResp, entregasResp, tarefasResp] = await Promise.all([
-        supabase.from("embarques").select("valor_operacao, custo_operacao").gte("data_saida", monthStart),
+      const [vendasMonth, embFuture, pax, lds, veics, embDiaResp, entregasResp, tarefasResp] = await Promise.all([
+        supabase.from("vendas_diarias").select("valor").gte("data", monthStartDate),
         supabase.from("embarques").select("*, veiculos(placa)").gte("data_saida", now).order("data_saida").limit(5),
         supabase.from("passageiros").select("id, ticket_medio, tag, ultima_viagem, total_viagens"),
         supabase.from("leads").select("id, valor_estimado, etapa"),
@@ -67,15 +65,42 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
       ]);
 
       // Financeiro
-      const faturamentoMes = (embMonth.data ?? []).reduce((s, e) => s + Number(e.valor_operacao || 0), 0);
-      const custoMes = (embMonth.data ?? []).reduce((s, e) => s + Number(e.custo_operacao || 0), 0);
+      const faturamentoMes = (vendasMonth.data ?? []).reduce((s, e) => s + Number(e.valor || 0), 0);
+      const custoMes = 0;
       const lucroMes = faturamentoMes - custoMes;
       const comissaoEstimada = faturamentoMes * 0.08;
 
-      // Comercial
-      const leadsData = lds.data ?? [];
-      const leadsAtivos = leadsData.filter(l => ["novo", "contato", "negociacao", "aguardando"].includes(l.etapa));
-      const valorEmNegociacao = leadsAtivos.reduce((s, l) => s + Number(l.valor_estimado || 0), 0);
+      // Comercial (WhatsApp Leads Ativos)
+      let leadsAtivosCount = 0;
+      try {
+        const labelsData = await getAllLabels();
+        const labels = Array.isArray(labelsData) ? labelsData : (labelsData?.data || []);
+        
+        const targetLabelIds = labels
+          .filter((l: any) => {
+            const name = (l.name || "").toLowerCase();
+            return name.includes("vender") || name.includes("cliente nh");
+          })
+          .map((l: any) => String(l.id));
+
+        const contactsData = await getAllContacts();
+        const contacts = Array.isArray(contactsData) ? contactsData : (contactsData?.data || []);
+
+        leadsAtivosCount = contacts.filter((c: any) => {
+          const cLabels = c.labels || c.data?.labels || [];
+          if (!Array.isArray(cLabels)) return false;
+          return cLabels.some((lbl: any) => targetLabelIds.includes(String(lbl)));
+        }).length;
+      } catch (e) {
+        console.error("Erro ao buscar contatos do WhatsApp:", e);
+        const leadsData = lds.data ?? [];
+        leadsAtivosCount = leadsData.filter(l => ["novo", "contato", "negociacao", "aguardando"].includes(l.etapa)).length;
+      }
+
+      const leadsDataForFinance = lds.data ?? [];
+      const valorEmNegociacao = leadsDataForFinance
+        .filter(l => ["novo", "contato", "negociacao", "aguardando"].includes(l.etapa))
+        .reduce((s, l) => s + Number(l.valor_estimado || 0), 0);
       const comissaoPotencial = valorEmNegociacao * 0.08;
 
       // Passageiros
@@ -155,7 +180,7 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
 
       setStats({
         faturamentoMes, custoMes, lucroMes, comissaoEstimada,
-        valorEmNegociacao, comissaoPotencial, leadsAtivos: leadsAtivos.length,
+        valorEmNegociacao, comissaoPotencial, leadsAtivos: leadsAtivosCount,
         totalPassageiros: paxData.length, passageirosInativos, oportunidadesRetorno,
         veiculosOperando, veiculosManutencao,
         proximos: embFuture.data ?? [],
@@ -244,15 +269,12 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-primary group">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Faturamento do Mês</p>
             <p className="mt-2 font-display text-2xl font-bold text-gradient-gold">R$ {stats.faturamentoMes.toLocaleString("pt-BR")}</p>
-            <div className="mt-2 flex items-center gap-1.5 text-xs">
-              <span className="text-muted-foreground">Comissão (8%):</span>
-              <span className="text-success font-semibold">R$ {stats.comissaoEstimada.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
+            <p className="text-xs text-muted-foreground mt-2">Valor total vendido no mês</p>
           </Card>
-          <Card className="glass-card p-5 hover:border-primary/40 transition-all group">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">Lucro da Empresa <Wallet className="h-4 w-4 opacity-50" /></p>
-            <p className="mt-2 font-display text-2xl font-bold">R$ {stats.lucroMes.toLocaleString("pt-BR")}</p>
-            <p className="text-xs text-muted-foreground mt-2">Faturamento - Custos</p>
+          <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-success group">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">Minha Comissão <Wallet className="h-4 w-4 text-success opacity-80" /></p>
+            <p className="mt-2 font-display text-2xl font-bold text-success">R$ {stats.comissaoEstimada.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xs text-muted-foreground mt-2">8% do Faturamento</p>
           </Card>
           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-warning group">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Pipeline Negociação</p>

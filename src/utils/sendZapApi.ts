@@ -121,3 +121,102 @@ export const getUnreadMessages = async () => {
     throw error;
   }
 };
+export const getAllContacts = async () => {
+  const url =
+    "/api-brasil/api/v2/whatsapp/getAllContacts";
+
+  // const headers = {
+  //   "Content-Type": "application/json",
+  //   SecretKey: "SEU_SECRET",
+  //   PublicToken: "SEU_PUBLIC",
+  //   DeviceToken: "SEU_DEVICE",
+  //   Authorization: "Bearer SEU_TOKEN",
+  // };
+
+  try {
+    const response = await axios.post(
+      url,
+      {},
+      { headers }
+    );
+
+    console.log("CONTATOS:", response.data);
+
+    return response.data;
+  } catch (error: any) {
+    console.error(
+      "ERRO API BRASIL:",
+      error.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+export const getAllLabels = async () => {
+  const url =
+    "/api-brasil/api/v2/whatsapp/getAllLabels";
+
+  // const headers = {
+  //   "Content-Type": "application/json",
+  //   SecretKey: "SEU_SECRET",
+  //   PublicToken: "SEU_PUBLIC",
+  //   DeviceToken: "SEU_DEVICE",
+  //   Authorization: "Bearer SEU_TOKEN",
+  // };
+
+  try {
+    const response = await axios.post(
+      url,
+      {},
+      { headers }
+    );
+
+    console.log("ETIQUETAS:", response.data);
+
+    return response.data;
+  } catch (error: any) {
+    console.error(
+      "ERRO AO BUSCAR ETIQUETAS:",
+      error.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
+export const getChat = async (number: string) => {
+  const url =
+    "/api-brasil/api/v2/whatsapp/getChat";
+
+  // const headers = {
+  //   "Content-Type": "application/json",
+  //   SecretKey: "SEU_SECRET",
+  //   PublicToken: "SEU_PUBLIC",
+  //   DeviceToken: "SEU_DEVICE",
+  //   Authorization: "Bearer SEU_TOKEN",
+  // };
+
+  const body = {
+    number, // Ex: "5543999999999"
+  };
+
+  try {
+    const response = await axios.post(
+      url,
+      body,
+      { headers }
+    );
+
+    console.log("CHAT:", response.data);
+
+    return response.data;
+  } catch (error: any) {
+    console.error(
+      "ERRO AO BUSCAR CHAT:",
+      error.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
