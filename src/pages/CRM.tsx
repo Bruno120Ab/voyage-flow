@@ -240,7 +240,7 @@ export default function CRM() {
       // Auto-move existing leads with unread messages to 'nao_atendido'
       if (finalInbox.length > 0) {
         const unreadPhones = finalInbox.map((m: any) => {
-          const p = m.phone || m.from || m.id?.split('@')[0] || "";
+          const p = m.historyChatId || m.number || m.whatsapp || m.telefone || m.phone || m.from || m.remoteJid || m.key?.remoteJid || m.sender || m.jid || m.chatId || m.contactId || m.id?.split('@')[0] || "";
           return (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
         }).filter(Boolean);
 
@@ -345,9 +345,8 @@ export default function CRM() {
     
     // 2. Mensagens do Inbox (contatos não salvos)
     const inboxPendentes = Array.isArray(inboxMessages) ? inboxMessages.filter((msg: any) => {
-      const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "";
-      console.log(phone)
-      const cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+      const p = msg.historyChatId || msg.number || msg.whatsapp || msg.telefone || msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.jid || msg.chatId || msg.contactId || msg.id?.split('@')[0] || "";
+      const cleanPhone = (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
       return !leads.some(l => (l.whatsapp || l.telefone || "").replace(/\D/g, "") === cleanPhone);
     }) : [];
 
@@ -372,7 +371,7 @@ export default function CRM() {
           cleanPhone = "55" + cleanPhone;
         }
         
-        await sendMainMenu("+55 77 9127-2846");
+        await sendMainMenu(cleanPhone);
         
         await supabase.from("leads").update({ 
           ultima_interacao: new Date().toISOString(),
@@ -386,13 +385,13 @@ export default function CRM() {
 
       // Disparar para Inbox Virtual
       for (const msg of inboxPendentes) {
-        const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "";
+        const phone = msg.historyChatId || msg.number || msg.whatsapp || msg.telefone || msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.jid || msg.chatId || msg.id?.split('@')[0] || "";
         let cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
         if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
           cleanPhone = "55" + cleanPhone;
         }
 
-        await sendMainMenu(item.phone);
+        await sendMainMenu(cleanPhone);
 
         // Save as a lead in "em_atendimento" so they leave the virtual queue
         const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
@@ -417,10 +416,10 @@ export default function CRM() {
       
       // Clear virtual messages that were processed
       setInboxMessages(prev => prev.filter((m: any) => {
-         const p = m.phone || m.from || m.id?.split('@')[0] || "";
+         const p = m.historyChatId || m.phone || m.from || m.id?.split('@')[0] || "";
          const cp = (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
          return !inboxPendentes.some(im => {
-           const ip = im.phone || im.from || im.id?.split('@')[0] || "";
+           const ip = im.historyChatId || im.phone || im.from || im.id?.split('@')[0] || "";
            return (ip.includes('@') ? ip.split('@')[0] : ip).replace(/\D/g, "") === cp;
          });
       }));
@@ -441,8 +440,8 @@ export default function CRM() {
         if (!phone) { toast.error("Contato sem telefone salvo."); return; }
         let cleanPhone = phone.replace(/\D/g, "");
         if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) cleanPhone = "55" + cleanPhone;
-        
-        await sendMainMenu(item.phone);
+        console.log("CLEAN PHONE:", cleanPhone);
+        await sendMainMenu(cleanPhone);
         
         await supabase.from("leads").update({ 
           ultima_interacao: new Date().toISOString(),
@@ -452,11 +451,18 @@ export default function CRM() {
         
       } else {
         // Inbox
-        const phone = item.phone || item.from || item.remoteJid || item.key?.remoteJid || item.sender || item.id?.split('@')[0] || "";
+        console.log("🛠️ DADOS BRUTOS DO INBOX ITEM:", item);
+        const phone = item.historyChatId || item.number || item.whatsapp || item.telefone || item.phone || item.from || item.remoteJid || item.key?.remoteJid || item.sender || item.jid || item.chatId || item.contactId || item.id?.split('@')[0] || "";
         let cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+        
+        if (cleanPhone.length > 12 && !cleanPhone.startsWith("55")) {
+          console.error("⚠️ ALERTA: O número capturado parece incorreto ou é um ID:", cleanPhone);
+          // toast.error(`Número capturado é suspeito: ${cleanPhone}. Verifique o console.`);
+        }
+
         if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) cleanPhone = "55" + cleanPhone;
 
-        await sendMainMenu(item.phone);
+        await sendMainMenu(cleanPhone);
 
         const name = item.pushname || item.pushName || item.name || cleanPhone || "Novo Contato";
         await supabase.from("leads").insert({
@@ -470,7 +476,7 @@ export default function CRM() {
         
         // Remove from local inbox state
         setInboxMessages(prev => prev.filter((m: any) => {
-           const p = m.phone || m.from || m.id?.split('@')[0] || "";
+           const p = m.historyChatId || m.phone || m.from || m.id?.split('@')[0] || "";
            const cp = (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
            return cp !== cleanPhone;
         }));
@@ -1087,12 +1093,12 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                       })}
                       {/* Virtual Cards from Inbox */}
                       {col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.filter((msg: any) => {
-                        const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "";
-                        const cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+                        const p = msg.historyChatId || msg.number || msg.whatsapp || msg.telefone || msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.jid || msg.chatId || msg.contactId || msg.id?.split('@')[0] || "";
+                        const cleanPhone = (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
                         return !leads.some(l => (l.whatsapp || l.telefone || "").replace(/\D/g, "") === cleanPhone);
                       }).map((msg: any, i) => {
-                        const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "Sem número";
-                        const cleanPhone = phone.includes('@') ? phone.split('@')[0] : phone;
+                        const p = msg.historyChatId || msg.number || msg.whatsapp || msg.telefone || msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.jid || msg.chatId || msg.id?.split('@')[0] || "Sem número";
+                        const cleanPhone = p.includes('@') ? p.split('@')[0] : p;
                         const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
                         const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
                         const time = msg.t ? new Date(msg.t * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";
@@ -1591,8 +1597,8 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                   </div>
                 ) : (
                   Array.isArray(inboxMessages) && inboxMessages.map((msg: any, i) => {
-                    const phone = msg.phone || msg.from || msg.id?.split('@')[0] || "Sem número";
-                    const cleanPhone = phone.includes('@') ? phone.split('@')[0] : phone;
+                    const p = msg.historyChatId || msg.number || msg.whatsapp || msg.telefone || msg.phone || msg.from || msg.jid || msg.chatId || msg.id?.split('@')[0] || "Sem número";
+                    const cleanPhone = p.includes('@') ? p.split('@')[0] : p;
                     const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
                     const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
                     const time = msg.t ? new Date(msg.t * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";

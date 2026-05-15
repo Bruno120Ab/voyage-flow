@@ -221,67 +221,229 @@ export const getChat = async (number: string) => {
     throw error;
   }
 };
+// export const sendMainMenu = async (number: string) => {
+//   console.log(number)
+//   const url = "/api-brasil/api/v2/whatsapp/sendList";
+
+//   const body = {
+//     number,
+//     text: "Olá, tudo bom? 👋\nComo podemos te ajudar hoje?",
+//     title: "Atendimento RapiHub",
+//    description: "Olá, tudo bom? 👋\nComo podemos te ajudar hoje? \n",
+//    sections: [
+//     { 
+//       title: "Atendimento Novo Horizonte",
+
+//       rows: [
+//         {
+//           rowId: "viagem",
+//           title: "🚐 Viagens",
+//           description:
+//             "Consultar horários, destinos e valores"
+//         },
+
+//         {
+//           rowId: "orcamento",
+//           title: "💰 Orçamento",
+//           description:
+//             "Solicitar orçamento personalizado"
+//         },
+
+//         {
+//           rowId: "entregas",
+//           title: "📦 Entregas",
+//           description:
+//             "Enviar ou acompanhar encomendas"
+//         },
+
+//         {
+//           rowId: "atendente",
+//           title: "👨‍💻 Falar com atendente",
+//           description:
+//             "Outras dúvidas e suporte"
+//         }
+//       ]
+//     }
+//   ],
+
+//   homolog: false
+// };
+//   try {
+//     const response = await axios.post(url, body, { headers });
+    
+//     // Se a API Brasil retornar sucesso mas com error: true no corpo (ex: número inválido)
+//     if (response.data && response.data.error) {
+//       throw new Error(response.data.message || "Erro retornado pela API Brasil.");
+//     }
+
+//     return response.data;
+//   } catch (error: any) {
+//     console.error(
+//       "ERRO AO ENVIAR MENU/BOTOES:",
+//       error.response?.data || error.message || error
+//     );
+
+//     throw error;
+//   }
+// };
+
 export const sendMainMenu = async (number: string) => {
+  console.log(number);
+
   const url = "/api-brasil/api/v2/whatsapp/sendList";
 
   const body = {
     number,
-    text: "Olá, tudo bom? 👋\nComo podemos te ajudar hoje?",
-    title: "Atendimento RapiHub",
-   description: "Olá, tudo bom? 👋\nComo podemos te ajudar hoje? \n",
-   sections: [
-    { 
-      title: "Atendimento Novo Horizonte",
 
-      rows: [
-        {
-          rowId: "viagem",
-          title: "🚐 Viagens",
-          description:
-            "Consultar horários, destinos e valores"
-        },
+    buttonText: "SELECIONE UMA OPÇÃO",
 
-        {
-          rowId: "orcamento",
-          title: "💰 Orçamento",
-          description:
-            "Solicitar orçamento personalizado"
-        },
+    description:
+      "Olá, tudo bom? 👋\nComo podemos te ajudar hoje?",
 
-        {
-          rowId: "entregas",
-          title: "📦 Entregas",
-          description:
-            "Enviar ou acompanhar encomendas"
-        },
+    sections: [
+      {
+        title: "Atendimento Novo Horizonte",
 
-        {
-          rowId: "atendente",
-          title: "👨‍💻 Falar com atendente",
-          description:
-            "Outras dúvidas e suporte"
-        }
-      ]
-    }
-  ],
+        rows: [
+          {
+            rowId: "viagem",
+            title: "🚐 Viagens",
+            description:
+              "Consultar horários, destinos e valores",
+          },
 
-  homolog: false
-};
+          {
+            rowId: "orcamento",
+            title: "💰 Orçamento",
+            description:
+              "Solicitar orçamento personalizado",
+          },
+
+          {
+            rowId: "entregas",
+            title: "📦 Entregas",
+            description:
+              "Enviar ou acompanhar encomendas",
+          },
+
+          {
+            rowId: "atendente",
+            title: "👨‍💻 Falar com atendente",
+            description:
+              "Outras dúvidas e suporte",
+          },
+        ],
+      },
+    ],
+
+    homolog: false,
+  };
+
   try {
-    const response = await axios.post(url, body, { headers });
-    
-    // Se a API Brasil retornar sucesso mas com error: true no corpo (ex: número inválido)
-    if (response.data && response.data.error) {
-      throw new Error(response.data.message || "Erro retornado pela API Brasil.");
+    const response = await axios.post(url, body, {
+      headers,
+    });
+
+    if (response.data?.error) {
+      throw new Error(
+        response.data.message ||
+          "Erro retornado pela API Brasil."
+      );
     }
 
     return response.data;
   } catch (error: any) {
     console.error(
-      "ERRO AO ENVIAR MENU/BOTOES:",
+      "ERRO AO ENVIAR MENU:",
       error.response?.data || error.message || error
     );
 
+    throw error;
+  }
+};
+export const sendViagensMenu = async (number: string) => {
+  const url = "/api-brasil/api/v2/whatsapp/sendList";
+  const body = {
+    number,
+    buttonText: "VER DESTINOS",
+    description: "Ótimo! 🚐 Para onde você deseja ir?",
+    sections: [
+      {
+        title: "Destinos Disponíveis",
+        rows: [
+          { rowId: "dest_conquista", title: "Vitória da Conquista" },
+          { rowId: "dest_itapetinga", title: "Itapetinga" },
+          { rowId: "dest_salvador", title: "Salvador" },
+          { rowId: "dest_porto_seguro", title: "Porto Seguro" }
+        ]
+      }
+    ],
+    homolog: false
+  };
+
+  try {
+    const response = await axios.post(url, body, { headers });
+    return response.data;
+  } catch (error: any) {
+    console.error("ERRO AO ENVIAR SUBMENU VIAGENS:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const sendOrcamentoMenu = async (number: string) => {
+  const url = "/api-brasil/api/v2/whatsapp/sendList";
+  const body = {
+    number,
+    buttonText: "VER OPÇÕES",
+    description: "Certo! 💰 Que tipo de veículo você precisa orçar?",
+    sections: [
+      {
+        title: "Tipo de Veículo",
+        rows: [
+          { rowId: "orc_onibus", title: "Ônibus" },
+          { rowId: "orc_micro", title: "Micro-ônibus" },
+          { rowId: "orc_van", title: "Van" },
+          { rowId: "orc_carro", title: "Carro Executivo" }
+        ]
+      }
+    ],
+    homolog: false
+  };
+
+  try {
+    const response = await axios.post(url, body, { headers });
+    return response.data;
+  } catch (error: any) {
+    console.error("ERRO AO ENVIAR SUBMENU ORÇAMENTO:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const sendEntregasMenu = async (number: string) => {
+  const url = "/api-brasil/api/v2/whatsapp/sendText";
+   const body = {
+    number,
+    buttonText: "VER DESTINOS",
+    description: "Ótimo! 🚐 Paravoce que deseja encomendas",
+    sections: [
+      {
+        title: "Destinos Disponíveis",
+        rows: [
+          { rowId: "dest_conquista", title: "Vitória da Conquista" },
+          { rowId: "dest_itapetinga", title: "Itapetinga" },
+          { rowId: "dest_salvador", title: "Salvador" },
+          { rowId: "dest_porto_seguro", title: "Porto Seguro" }
+        ]
+      }
+    ],
+    homolog: false
+  };
+
+  try {
+    const response = await axios.post(url, body, { headers });
+    return response.data;
+  } catch (error: any) {
+    console.error("ERRO AO ENVIAR SUBMENU ENTREGAS:", error.response?.data || error.message);
     throw error;
   }
 };
