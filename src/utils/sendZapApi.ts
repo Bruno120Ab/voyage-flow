@@ -1,3 +1,4 @@
+import { Description } from '@radix-ui/react-dialog';
 import axios, { AxiosResponse } from 'axios';
 
 export interface WhatsAppMessage {
@@ -215,6 +216,70 @@ export const getChat = async (number: string) => {
     console.error(
       "ERRO AO BUSCAR CHAT:",
       error.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+export const sendMainMenu = async (number: string) => {
+  const url = "/api-brasil/api/v2/whatsapp/sendList";
+
+  const body = {
+    number,
+    text: "Olá, tudo bom? 👋\nComo podemos te ajudar hoje?",
+    title: "Atendimento RapiHub",
+   description: "Olá, tudo bom? 👋\nComo podemos te ajudar hoje? \n",
+   sections: [
+    { 
+      title: "Atendimento Novo Horizonte",
+
+      rows: [
+        {
+          rowId: "viagem",
+          title: "🚐 Viagens",
+          description:
+            "Consultar horários, destinos e valores"
+        },
+
+        {
+          rowId: "orcamento",
+          title: "💰 Orçamento",
+          description:
+            "Solicitar orçamento personalizado"
+        },
+
+        {
+          rowId: "entregas",
+          title: "📦 Entregas",
+          description:
+            "Enviar ou acompanhar encomendas"
+        },
+
+        {
+          rowId: "atendente",
+          title: "👨‍💻 Falar com atendente",
+          description:
+            "Outras dúvidas e suporte"
+        }
+      ]
+    }
+  ],
+
+  homolog: false
+};
+  try {
+    const response = await axios.post(url, body, { headers });
+    
+    // Se a API Brasil retornar sucesso mas com error: true no corpo (ex: número inválido)
+    if (response.data && response.data.error) {
+      throw new Error(response.data.message || "Erro retornado pela API Brasil.");
+    }
+
+    return response.data;
+  } catch (error: any) {
+    console.error(
+      "ERRO AO ENVIAR MENU/BOTOES:",
+      error.response?.data || error.message || error
     );
 
     throw error;

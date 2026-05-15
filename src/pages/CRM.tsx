@@ -9,13 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus, Plus, Trash2, ListChecks, Clock, Search, UserPlus, Repeat, Users, Inbox, Edit3, MapPin } from "lucide-react";
+import { MessageCircle, Phone, MoreHorizontal, Loader2, CalendarClock, TrendingUp, Target, BarChart2, AlertCircle, LayoutDashboard, KanbanSquare, CheckCircle2, Bus, Plus, Trash2, ListChecks, Clock, Search, UserPlus, Repeat, Users, Inbox, Edit3, MapPin, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { sendText, getAllNewMessages, getMessagesChat } from "@/utils/sendZapApi";
+import { sendText, getAllNewMessages, getMessagesChat, sendMainMenu } from "@/utils/sendZapApi";
 import { renderClientName } from "@/utils/nameClient";
 import EmbarqueAlertsSettings from "@/components/EmbarqueAlertsSettings";
 
@@ -334,6 +334,155 @@ export default function CRM() {
       setZapDialog(false);
     } catch (e) {
       toast.error("Erro ao enviar mensagem");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const dispararChatbotNaoAtendidos = async () => {
+    // 1. Leads salvos como "nao_atendido"
+    const leadsNaoAtendidos = leads.filter(l => (l as any).kanban_status === "nao_atendido" && (l.whatsapp || l.telefone));
+    
+    // 2. Mensagens do Inbox (contatos não salvos)
+    const inboxPendentes = Array.isArray(inboxMessages) ? inboxMessages.filter((msg: any) => {
+      const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "";
+      console.log(phone)
+      const cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+      return !leads.some(l => (l.whatsapp || l.telefone || "").replace(/\D/g, "") === cleanPhone);
+    }) : [];
+
+    const totalToProcess = leadsNaoAtendidos.length + inboxPendentes.length;
+
+    if (totalToProcess === 0) {
+      toast.info("Nenhum contato pendente de atendimento.");
+      return;
+    }
+
+    if (!confirm(`Deseja disparar o menu do Chatbot para ${totalToProcess} contatos não atendidos?`)) return;
+
+    setSaving(true);
+    let count = 0;
+    try {
+      // Disparar para leads
+      for (const lead of leadsNaoAtendidos) {
+        const phone = lead.whatsapp || lead.telefone;
+        if (!phone) continue;
+        let cleanPhone = phone.replace(/\D/g, "");
+        if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
+          cleanPhone = "55" + cleanPhone;
+        }
+        
+        await sendMainMenu("+55 77 9127-2846");
+        
+        await supabase.from("leads").update({ 
+          ultima_interacao: new Date().toISOString(),
+          ultima_mensagem: "[Chatbot Menu Enviado]",
+          kanban_status: "em_atendimento"
+        } as any).eq("id", lead.id);
+
+        count++;
+        await new Promise(res => setTimeout(res, 1200));
+      }
+
+      // Disparar para Inbox Virtual
+      for (const msg of inboxPendentes) {
+        const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "";
+        let cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+        if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
+          cleanPhone = "55" + cleanPhone;
+        }
+
+        await sendMainMenu(item.phone);
+
+        // Save as a lead in "em_atendimento" so they leave the virtual queue
+        const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
+        await supabase.from("leads").insert({
+          nome: name,
+          telefone: cleanPhone,
+          whatsapp: cleanPhone,
+          kanban_status: "em_atendimento",
+          ultima_interacao: new Date().toISOString(),
+          ultima_mensagem: "[Chatbot Menu Enviado]"
+        } as any);
+
+        count++;
+        await new Promise(res => setTimeout(res, 1200));
+      }
+      
+      toast.success(`Chatbot disparado para ${count} contatos!`);
+      
+      // Update local state
+      const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+      if (data) setLeads(data as any[]);
+      
+      // Clear virtual messages that were processed
+      setInboxMessages(prev => prev.filter((m: any) => {
+         const p = m.phone || m.from || m.id?.split('@')[0] || "";
+         const cp = (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
+         return !inboxPendentes.some(im => {
+           const ip = im.phone || im.from || im.id?.split('@')[0] || "";
+           return (ip.includes('@') ? ip.split('@')[0] : ip).replace(/\D/g, "") === cp;
+         });
+      }));
+
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao disparar para alguns contatos.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const dispararChatbotIndividual = async (tipo: "lead" | "inbox", item: any) => {
+    setSaving(true);
+    try {
+      if (tipo === "lead") {
+        const phone = item.whatsapp || item.telefone;
+        if (!phone) { toast.error("Contato sem telefone salvo."); return; }
+        let cleanPhone = phone.replace(/\D/g, "");
+        if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) cleanPhone = "55" + cleanPhone;
+        
+        await sendMainMenu(item.phone);
+        
+        await supabase.from("leads").update({ 
+          ultima_interacao: new Date().toISOString(),
+          ultima_mensagem: "[Chatbot Menu Enviado]",
+          kanban_status: "em_atendimento"
+        } as any).eq("id", item.id);
+        
+      } else {
+        // Inbox
+        const phone = item.phone || item.from || item.remoteJid || item.key?.remoteJid || item.sender || item.id?.split('@')[0] || "";
+        let cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+        if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) cleanPhone = "55" + cleanPhone;
+
+        await sendMainMenu(item.phone);
+
+        const name = item.pushname || item.pushName || item.name || cleanPhone || "Novo Contato";
+        await supabase.from("leads").insert({
+          nome: name,
+          telefone: cleanPhone,
+          whatsapp: cleanPhone,
+          kanban_status: "em_atendimento",
+          ultima_interacao: new Date().toISOString(),
+          ultima_mensagem: "[Chatbot Menu Enviado]"
+        } as any);
+        
+        // Remove from local inbox state
+        setInboxMessages(prev => prev.filter((m: any) => {
+           const p = m.phone || m.from || m.id?.split('@')[0] || "";
+           const cp = (p.includes('@') ? p.split('@')[0] : p).replace(/\D/g, "");
+           return cp !== cleanPhone;
+        }));
+      }
+      
+      const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+      if (data) setLeads(data as any[]);
+      
+      toast.success("Chatbot disparado para o contato com sucesso!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao disparar chatbot individualmente.");
     } finally {
       setSaving(false);
     }
@@ -833,6 +982,10 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
             <Button onClick={abrirNovoCliente} className="bg-gradient-gold text-primary-foreground">
               <UserPlus className="h-4 w-4 mr-1.5" /> Novo cliente
             </Button>
+            <Button onClick={dispararChatbotNaoAtendidos} disabled={saving} variant="outline" className="border-emerald-500 text-emerald-600 hover:bg-emerald-500/10">
+              {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Bot className="h-4 w-4 mr-1.5" />}
+              Disparar Chatbot (Não Atendidos)
+            </Button>
           </div>
 
           {/* Listas inteligentes */}
@@ -918,6 +1071,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                             <div className="flex gap-1 mt-2 pt-2 border-t border-border/40">
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-success hover:bg-success/10" onClick={() => openWhats(c.whatsapp || c.telefone)} title="WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:bg-emerald-500/10" onClick={() => abrirZap(c)} title="Disparar Mensagem API"><Inbox className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:bg-emerald-600/10" onClick={() => dispararChatbotIndividual("lead", c)} title="Disparar Chatbot (Menu)"><Bot className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" onClick={() => abrirEmbarque(c)} title="Novo embarque"><Bus className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-accent/10" onClick={() => abrirHistorico(c)} title="Histórico"><Users className="h-3.5 w-3.5" /></Button>
                               <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => excluirLead(c)} title="Excluir cliente"><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -933,11 +1087,11 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                       })}
                       {/* Virtual Cards from Inbox */}
                       {col.key === "nao_atendido" && Array.isArray(inboxMessages) && inboxMessages.filter((msg: any) => {
-                        const phone = msg.phone || msg.from || msg.id?.split('@')[0] || "";
+                        const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "";
                         const cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
                         return !leads.some(l => (l.whatsapp || l.telefone || "").replace(/\D/g, "") === cleanPhone);
                       }).map((msg: any, i) => {
-                        const phone = msg.phone || msg.from || msg.id?.split('@')[0] || "Sem número";
+                        const phone = msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.id?.split('@')[0] || "Sem número";
                         const cleanPhone = phone.includes('@') ? phone.split('@')[0] : phone;
                         const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
                         const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
@@ -1024,6 +1178,13 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                                   }
                                 }}
                               />
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-emerald-600 bg-emerald-600/10 hover:bg-emerald-600/20 shrink-0" title="Disparar Chatbot (Menu)" onClick={(e) => {
+                                e.stopPropagation();
+                                dispararChatbotIndividual("inbox", msg);
+                              }}>
+                                <Bot className="h-3.5 w-3.5" />
+                              </Button>
+
                               <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary bg-primary/10 hover:bg-primary/20 shrink-0" title="Abrir Chat Completo" onClick={(e) => {
                                 e.stopPropagation();
                                 setTab("inbox");
