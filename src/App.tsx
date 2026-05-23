@@ -24,6 +24,8 @@ import PaginaEncomendas from "./pages/Entregas.tsx";
 import Financeiro from "./pages/Financeiro.tsx";
 import Whatsapp from "./pages/Whatsapp.tsx";
 import NHIntelligencePage from "./pages/Trafego.tsx";
+import PublicoEmbarques from "./pages/EmbarquePublic.tsx";
+import MetasPassagens from "./pages/ViageMeta.tsx";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +47,18 @@ const App = () => (
             <Route path="/frota" element={protectedLayout(<Frota />)} />
             <Route path="/trafego" element={protectedLayout(<NHIntelligencePage />)} />
             <Route path="/PaginaEmbarques" element={protectedLayout(<PaginaEmbarques />)} />
+            <Route
+  path="/publico"
+  element={
+    <PublicoEmbarques />
+  }
+/>
+    <Route
+  path="/viameta"
+  element={
+    <MetasPassagens />
+  }
+/>
             <Route path="/embarques" element={protectedLayout(<Embarques />)} />
             <Route path="/entregas" element={protectedLayout(<PaginaEncomendas />)} />
             <Route path="/agenda" element={protectedLayout(<Agenda />)} />

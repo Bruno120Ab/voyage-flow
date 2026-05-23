@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Database } from "@/integrations/supabase/types";
 import { solicitarLocalizacao } from "@/utils/cco";
+import { sendText } from "@/utils/sendZapApi";
 
 type EmbarqueDia = Database["public"]["Tables"]["embarques_dia"]["Row"];
 
@@ -27,7 +28,13 @@ export default function PaginaEmbarques() {
   const [embarqueSelecionado, setEmbarqueSelecionado] = useState<EmbarqueDia | null>(null);
   const [busca, setBusca] = useState("");
   const [veiculos, setVeiculos] = useState<{placa: string, modelo: string}[]>([]);
+const [grupoDestino, setGrupoDestino] =
+  useState<"porto" | "ilheus">("porto");
+  const [confirmarQuebraOpen, setConfirmarQuebraOpen] =
+  useState(false);
 
+const [enviandoQuebra, setEnviandoQuebra] =
+  useState(false);
   const agora = new Date();
 
   const [form, setForm] = useState({
@@ -163,29 +170,202 @@ export default function PaginaEmbarques() {
     if (diff <= 15 && diff >= -10 && !passou) return "iminente";
     return "normal";
   };
-
-  const confirmarEmbarque = async () => {
+  const grupos = {
+    porto: "120363022584191223@g.us",
+    ilheus: "120363039500978573@g.us",
+  };
+    // const confirmarEmbarque = async () => {
+    //   if (!embarqueSelecionado) return;
+    //   const { error } = await supabase
+    //     .from("embarques_dia")
+    //     .update({
+    //       passou: true,
+    //       status: "concluido",
+    //       hora_real: form.horaReal,
+    //       carro: form.carro || "--",
+    //       motorista: form.motorista,
+    //       encomenda: form.encomenda,
+    //       observacao: form.observacao,
+    //     })
+    //     .eq("id", embarqueSelecionado.id);
+    //   if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+    //   else {
+    //     toast({ title: "Embarque confirmado" });
+    //     setModalOpen(false);
+    //     carregar();
+    //   }
+    // };
+  const confirmarEmbarque = async (
+    enviarGrupo = false,
+    grupo?: "porto" | "ilheus"
+  ) => {
     if (!embarqueSelecionado) return;
+
+    const payload = {
+      passou: true,
+      status: "concluido",
+      hora_real: form.horaReal,
+      carro: form.carro || "--",
+      motorista: form.motorista,
+      encomenda: form.encomenda,
+      observacao: form.observacao,
+    };
+
     const { error } = await supabase
       .from("embarques_dia")
-      .update({
-        passou: true,
-        status: "concluido",
-        hora_real: form.horaReal,
-        carro: form.carro || "--",
-        motorista: form.motorista,
-        encomenda: form.encomenda,
-        observacao: form.observacao,
-      })
+      .update(payload)
       .eq("id", embarqueSelecionado.id);
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else {
-      toast({ title: "Embarque confirmado" });
-      setModalOpen(false);
-      carregar();
-    }
-  };
 
+    if (error) {
+      toast({
+        title: "Erro",
+        description: error.message,
+        variant: "destructive",
+      });
+
+      return;
+    }
+
+    // ENVIO OPCIONAL
+    if (enviarGrupo) {
+      try {
+      const texto = `
+  🚌 *LINHA ${embarqueSelecionado.rota?.toUpperCase()}*
+
+  🔢 *Serviço:* #${embarqueSelecionado.servico}
+  🚐 *Carro:* ${form.carro || "--"}
+  👨‍✈️ *Motorista:* ${form.motorista || "--"}
+
+  *Saindo de Itambe as:* ${form.horaReal || "--"}
+  *Hora em sistema:* ${embarqueSelecionado.hora_saida_prevista || "--"}
+
+
+
+  ${
+    form.encomenda?.trim()
+      ? `📦 *Encomendas:*
+  ${form.encomenda}
+
+  `
+      : ""
+  }${
+    form.observacao?.trim()
+      ? `📝 *Observações:*
+  ${form.observacao}`
+      : ""
+  }
+  `.trim();
+
+        await sendText({
+    number: grupos[grupo || "porto"],
+    text: texto,
+  });
+
+        toast({
+          title: "Check-in salvo e enviado",
+        });
+
+      } catch (err) {
+        console.error(err);
+
+        toast({
+          title: "Check-in salvo",
+          description: "Falha ao enviar grupo",
+        });
+      }
+    } else {
+      toast({
+        title: "Check-in salvo",
+      });
+    }
+
+    setModalOpen(false);
+
+    carregar();
+  };
+  const informarCarroQuebrado = async () => {
+  if (!embarqueSelecionado) return;
+
+  try {
+    const sentido = (embarqueSelecionado as any).sentido;
+
+    const CCO = "120363409669761672@g.us";
+
+    const SETOR_PORTO =
+      "120363409669761672@g.us";
+
+    const SETOR_ILHEUS =
+      "120363409669761672@g.us";
+
+    const agencias: Record<string, string> = {
+      "Porto Seguro": "120363409669761672@g.us",
+      "Ilhéus": "120363409669761672@g.us",
+      "Itapetinga": "120363409669761672@g.us",
+    };
+
+    const agencia =
+      agencias[
+        embarqueSelecionado.cidade_destino || ""
+      ];
+
+    const grupoSetor =
+      sentido === "descida"
+        ? SETOR_PORTO
+        : SETOR_ILHEUS;
+
+    const destinos = [
+      CCO,
+      grupoSetor,
+      agencia,
+    ].filter(Boolean);
+
+    const texto = `
+🚨 *CARRO QUEBRADO*
+
+🚌 ${embarqueSelecionado.rota}
+
+🔢 Serviço #${embarqueSelecionado.servico}
+
+🚐 Carro:
+${form.carro || "--"}
+
+👨‍✈️ Motorista:
+${form.motorista || "--"}
+
+🕒 Hora:
+${form.horaReal || "--"}
+
+${
+form.observacao?.trim()
+? `📝 ${form.observacao}`
+: ""
+}
+`.trim();
+
+    await Promise.all(
+      destinos.map((numero) =>
+        sendText({
+          number: numero,
+          text: texto,
+        })
+      )
+    );
+
+    toast({
+      title: "Aviso enviado",
+      description:
+        "CCO, setor e agência notificados",
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    toast({
+      title: "Falha ao enviar aviso",
+      variant: "destructive",
+    });
+  }
+};
   const excluirServico = async (id: string) => {
     if (!confirm("Excluir este embarque?")) return;
     const { error } = await supabase.from("embarques_dia").delete().eq("id", id);
@@ -488,7 +668,10 @@ export default function PaginaEmbarques() {
                         >
                           <MapPinned className="h-4 w-4" />
                           CCO
+
+                          
                         </Button>
+                        
                             <Button size="sm" variant="outline" onClick={() => abrirModalEditar(item)} className="h-9 flex-1 sm:flex-none">Editar Serviço</Button>
                             <Button onClick={() => abrirModal(item)} className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow shadow-primary/20 h-9 px-6 rounded-full font-semibold transition-transform active:scale-95 flex-1 sm:flex-none">Fazer Check-in</Button>
                             <Button size="icon" variant="ghost" onClick={() => excluirServico(item.id)} className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></Button>
@@ -639,11 +822,168 @@ export default function PaginaEmbarques() {
               <Input className="bg-background/50" placeholder="Algum detalhe relevante?" value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} />
             </div>
             
-            <div className="pt-2">
-              <Button className="w-full rounded-xl bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" onClick={confirmarEmbarque}>
-                {embarqueSelecionado?.passou ? 'Salvar Edições' : 'Confirmar Check-in'}
+            {/* <div className="pt-2 space-y-1">
+              <Button 
+              className="w-full rounded-xl bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-glow" 
+              onClick={() => confirmarEmbarque(false)}
+>
+                {embarqueSelecionado?.passou ? 'Salvar Edições' : 'Salvar Checkin'}
               </Button>
-            </div>
+
+            <Button
+            variant="outline"
+            className="w-full rounded-xl   hover:opacity-90 shadow-glow"            
+            onClick={() => confirmarEmbarque(true)}
+            >
+            📤 Confirmar Checkin
+            </Button>
+            </div> */}
+          {/* <div className="pt-2 space-y-2">
+
+  <Button
+    className="
+      w-full
+      rounded-xl
+      bg-gradient-gold
+      text-primary-foreground
+      hover:opacity-90
+      shadow-glow
+    "
+    onClick={() => confirmarEmbarque(false)}
+  >
+    {embarqueSelecionado?.passou
+      ? "Salvar Edições"
+      : "✅ Salvar Check-in"}
+  </Button>
+
+  {!embarqueSelecionado?.passou && (
+    <div className="grid grid-cols-2 gap-2">
+
+      <Button
+        variant="outline"
+        className="
+          rounded-xl
+          border-primary/20
+          hover:border-primary/40
+          hover:bg-primary/5
+        "
+        onClick={() =>
+          confirmarEmbarque(
+            true,
+            "porto"
+          )
+        }
+      >
+        🚌 Checkin Setor Porto
+      </Button>
+
+      <Button
+        variant="outline"
+        className="
+          rounded-xl
+          border-warning/20
+          hover:border-warning/40
+          hover:bg-warning/5
+        "
+        onClick={() =>
+          confirmarEmbarque(
+            true,
+            "ilheus"
+          )
+        }
+      >
+        🌊 Checkin Setor Ilhéus
+      </Button>
+<Button
+variant="destructive"
+className="
+w-full
+rounded-xl
+font-semibold
+"
+onClick={() =>
+setConfirmarQuebraOpen(true)
+}
+>
+🚨 sos
+</Button>
+    </div>
+  )}
+
+</div> */}
+   <div className="pt-2 space-y-2">
+
+  <Button
+    className="
+      w-full
+      rounded-xl
+      bg-gradient-gold
+      text-primary-foreground
+      hover:opacity-90
+      shadow-glow
+    "
+    onClick={() => confirmarEmbarque(false)}
+  >
+    {embarqueSelecionado?.passou
+      ? "Salvar Edições"
+      : "✅ Salvar Check-in"}
+  </Button>
+
+  {!embarqueSelecionado?.passou && (
+    <div className="grid grid-cols-2 gap-2">
+
+      <Button
+        variant="outline"
+        className="
+          rounded-xl
+          border-primary/20
+          hover:border-primary/40
+          hover:bg-primary/5
+        "
+        onClick={() =>
+          confirmarEmbarque(
+            true,
+            "porto"
+          )
+        }
+      >
+        🚌 Checkin Setor Porto
+      </Button>
+
+      <Button
+        variant="outline"
+        className="
+          rounded-xl
+          border-warning/20
+          hover:border-warning/40
+          hover:bg-warning/5
+        "
+        onClick={() =>
+          confirmarEmbarque(
+            true,
+            "ilheus"
+          )
+        }
+      >
+        🌊 Checkin Setor Ilhéus
+      </Button>
+<Button
+variant="destructive"
+className="
+w-full
+rounded-xl
+font-semibold
+"
+onClick={() =>
+setConfirmarQuebraOpen(true)
+}
+>
+🚨 sos
+</Button>
+    </div>
+  )}
+
+</div>
           </div>
         </DialogContent>
       </Dialog>
@@ -706,6 +1046,82 @@ export default function PaginaEmbarques() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+open={confirmarQuebraOpen}
+onOpenChange={setConfirmarQuebraOpen}
+>
+<DialogContent className="max-w-sm">
+
+<DialogHeader>
+<DialogTitle>
+🚨 Confirmar ocorrência
+</DialogTitle>
+</DialogHeader>
+
+<div className="space-y-3">
+
+<p className="text-sm text-muted-foreground">
+Isso enviará alerta para:
+</p>
+
+<div className="rounded-lg border p-3 text-sm">
+
+<div>📡 CCO</div>
+
+<div>
+🚌 Grupo do Setor
+</div>
+
+<div>
+🏢 Agência próxima
+</div>
+
+</div>
+
+<p className="text-sm font-medium text-destructive">
+Use apenas em caso real de quebra.
+</p>
+
+<div className="flex gap-2">
+
+<Button
+variant="outline"
+className="flex-1"
+onClick={() =>
+setConfirmarQuebraOpen(false)
+}
+>
+Cancelar
+</Button>
+
+<Button
+variant="destructive"
+className="flex-1"
+disabled={enviandoQuebra}
+onClick={async () => {
+
+setEnviandoQuebra(true);
+
+await informarCarroQuebrado();
+
+setEnviandoQuebra(false);
+
+setConfirmarQuebraOpen(false);
+
+}}
+>
+{enviandoQuebra
+? "Enviando..."
+: "Confirmar"}
+</Button>
+
+</div>
+
+</div>
+
+</DialogContent>
+</Dialog>
     </div>
   );
 }

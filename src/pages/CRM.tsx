@@ -15,7 +15,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format, isToday, isBefore, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { sendText, getAllNewMessages, getMessagesChat, sendMainMenu } from "@/utils/sendZapApi";
+import { sendText, getAllNewMessages, getMessagesChat, sendMainMenu, sendViagensMenu, sendOrcamentoMenu, sendEntregasMenu, sendAutoReply } from "@/utils/sendZapApi";
 import { renderClientName } from "@/utils/nameClient";
 import EmbarqueAlertsSettings from "@/components/EmbarqueAlertsSettings";
 
@@ -236,6 +236,106 @@ export default function CRM() {
       
       const finalInbox = unread.length > 0 ? unread : arr;
       setInboxMessages(finalInbox);
+
+      // --- AUTOBOT LOGIC ---
+      try {
+        const processed = new Set(JSON.parse(localStorage.getItem('processed_bot_msgs') || '[]'));
+        let autobotTriggered = false;
+
+        for (const msg of finalInbox) {
+          if (!msg.id || processed.has(msg.id)) continue;
+          
+          let text = (msg.body || msg.content || msg.text?.message || msg.text || "").toLowerCase().trim();
+          const phone = msg.historyChatId || msg.number || msg.whatsapp || msg.telefone || msg.phone || msg.from || msg.remoteJid || msg.key?.remoteJid || msg.sender || msg.jid || msg.chatId || msg.contactId || msg.id?.split('@')[0] || "";
+          let cleanPhone = (phone.includes('@') ? phone.split('@')[0] : phone).replace(/\D/g, "");
+          if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) cleanPhone = "55" + cleanPhone;
+
+          // Se a APIBrasil retornou a mensagem de placeholder "Você tem X novas mensagens", precisamos buscar o texto real!
+          if (text.includes("nova(s) mensagem") || text === "") {
+             try {
+                const history = await getMessagesChat(cleanPhone);
+                let arr = [];
+                if (Array.isArray(history)) arr = history;
+                else if (history && Array.isArray(history.messages)) arr = history.messages;
+                else if (history && Array.isArray(history.response)) arr = history.response;
+                else if (history && history.message && Array.isArray(history.message)) arr = history.message;
+                
+                if (arr && arr.length > 0) {
+                   // Pegar a última mensagem recebida do cliente
+                   const lastClientMsg = arr.find((m: any) => m.fromMe === false || m.isFromMe === false || m.sender !== "me");
+                   if (lastClientMsg) {
+                      text = (lastClientMsg.body || lastClientMsg.content || lastClientMsg.text?.message || lastClientMsg.text || "").toLowerCase().trim();
+                      // Para cliques em botões de lista:
+                      if (!text && lastClientMsg.listResponseMessage) text = lastClientMsg.listResponseMessage.title?.toLowerCase() || "";
+                      if (!text && lastClientMsg.message?.listResponseMessage) text = lastClientMsg.message.listResponseMessage.title?.toLowerCase() || "";
+                   }
+                }
+             } catch (e) {
+                console.error("AutoBot: Erro ao buscar mensagem real", e);
+             }
+          }
+
+          let triggered = false;
+          let subMenuName = "";
+          
+          if (text === "viagem" || text === "viagens" || text.includes("viagem") || text.includes("viagens")) {
+            await sendViagensMenu(cleanPhone);
+            triggered = true;
+            subMenuName = "Viagens";
+          } else if (text === "orçamento" || text === "orcamento" || text.includes("orçamento") || text.includes("orcamento")) {
+            await sendOrcamentoMenu(cleanPhone);
+            triggered = true;
+            subMenuName = "Orçamento";
+          } else if (text === "entrega" || text === "encomendas" || text === "encomenda" || text.includes("entrega") || text.includes("encomenda")) {
+            await sendEntregasMenu(cleanPhone);
+            triggered = true;
+            subMenuName = "Entregas";
+          } else if (text.includes("vitória da conquista") || text.includes("itapetinga") || text.includes("salvador") || text.includes("porto seguro")) {
+            await sendAutoReply(cleanPhone, "Excelente escolha de destino! 🚌 Um de nossos agentes já vai te passar os horários e valores disponíveis.");
+            triggered = true;
+            subMenuName = "Destino Selecionado";
+          } else if (text.includes("ônibus") || text.includes("micro-ônibus") || text.includes("van") || text.includes("carro executivo")) {
+            await sendAutoReply(cleanPhone, "Perfeito! 💰 Um de nossos especialistas já vai iniciar o seu orçamento para esse veículo.");
+            triggered = true;
+            subMenuName = "Veículo Selecionado";
+          }
+          
+          if (triggered) {
+            processed.add(msg.id);
+            localStorage.setItem('processed_bot_msgs', JSON.stringify(Array.from(processed).slice(-1000)));
+            autobotTriggered = true;
+            
+            // Verifica se lead já existe no banco
+            const { data: leadExistente } = await supabase.from("leads").select("id").eq("whatsapp", cleanPhone).maybeSingle();
+            
+            if (leadExistente) {
+               await supabase.from("leads").update({
+                  ultima_interacao: new Date().toISOString(),
+                  ultima_mensagem: `[AutoBot: ${subMenuName}]`,
+                  kanban_status: "em_atendimento"
+               } as any).eq("id", leadExistente.id);
+            } else {
+               const name = msg.pushname || msg.pushName || msg.name || cleanPhone || "Novo Contato";
+               await supabase.from("leads").insert({
+                  nome: name,
+                  telefone: cleanPhone,
+                  whatsapp: cleanPhone,
+                  kanban_status: "em_atendimento",
+                  ultima_interacao: new Date().toISOString(),
+                  ultima_mensagem: `[AutoBot: ${subMenuName}]`
+               });
+            }
+          }
+        }
+        
+        if (autobotTriggered) {
+          fetchLeads(); // Atualiza a tela
+        }
+      } catch (err) {
+        console.error("Erro no AutoBot:", err);
+      }
+      // --- END AUTOBOT LOGIC ---
+
 
       // Auto-move existing leads with unread messages to 'nao_atendido'
       if (finalInbox.length > 0) {
@@ -1103,12 +1203,16 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                         const text = msg.body || msg.content || msg.text?.message || msg.text || "Nova mensagem recebida...";
                         const time = msg.t ? new Date(msg.t * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";
                         
+                            {
+                              console.log(msg)
+                            }
                         return (
                           <Card
                             key={`virtual_msg_${i}`}
                             className="glass-card p-3 border-l-4 border-l-destructive bg-destructive/5 hover:border-destructive/40 transition-all group cursor-pointer"
                             onClick={() => abrirDetalhesVirtualMsg(msg, name, cleanPhone, time, text)}
                           >
+
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <div className="flex flex-col min-w-0">
                                 {/* <p className="font-semibold text-sm leading-tight truncate">{name} a <span className="text-[10px] text-destructive">(ZAP)</span></p> */}
@@ -1134,7 +1238,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                                 id={`reply_input_${cleanPhone}`}
                                 onClick={e => e.stopPropagation()}
                                 onKeyDown={async (e) => {
-                                  if (e.key === 'Enter') {
+                                   if (e.key === 'Enter') {
                                     const val = (e.target as HTMLInputElement).value;
                                     if(!val.trim()) return;
                                     
@@ -1267,33 +1371,33 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="glass-card lg:col-span-2 flex flex-col">
-              <CardHeader>
-<CardTitle className="font-display text-lg flex items-center gap-2">
-  <BarChart2 className="h-5 w-5 text-primary" />
-  Contatos realizados hoje
-</CardTitle>              </CardHeader>
-              <CardContent className="flex-1 min-h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={contatosPorHora} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} />
-<YAxis
-  tick={{ fontSize: 11, fill: "#888" }}
-  axisLine={false}
-  tickLine={false}
-/>                    <Tooltip
-  cursor={{ fill: "#ffffff0a" }}
-  contentStyle={{
-    backgroundColor: "#111",
-    border: "1px solid #333",
-    borderRadius: "8px",
-    fontSize: "12px",
-  }}
-  formatter={(value: number) => [
-    `${value} contatos`,
-    "Contatos realizados",
-  ]}
-/>
+              <CardHeader>          
+                  <CardTitle className="font-display text-lg flex items-center gap-2">
+                    <BarChart2 className="h-5 w-5 text-primary" />
+                    Contatos realizados hoje
+                  </CardTitle>              </CardHeader>
+                                <CardContent className="flex-1 min-h-[300px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={contatosPorHora} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff15" vertical={false} />
+                                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#888' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#888" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />                    <Tooltip
+                    cursor={{ fill: "#ffffff0a" }}
+                    contentStyle={{
+                      backgroundColor: "#111",
+                      border: "1px solid #333",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                    }}
+                    formatter={(value: number) => [
+                      `${value} contatos`,
+                      "Contatos realizados",
+                    ]}
+                  />
                     <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
                       {contatosPorHora.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.hex} />
@@ -1894,6 +1998,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
       {/* Dialog Mensagem Inbox (Virtual Card) */}
       <Dialog open={virtualMsgDialog} onOpenChange={setVirtualMsgDialog}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-card/95 border-border/50">

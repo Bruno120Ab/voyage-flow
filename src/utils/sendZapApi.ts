@@ -95,14 +95,6 @@ export const getUnreadMessages = async () => {
   const url =
     "/api-brasil/api/v2/whatsapp/getUnreadMessages";
 
-//   const headers = {
-//     "Content-Type": "application/json",
-//     SecretKey: "SEU_SECRET",
-//     PublicToken: "SEU_PUBLIC",
-//     DeviceToken: "SEU_DEVICE",
-//     Authorization: "Bearer SEU_TOKEN",
-//   };
-
   try {
     const response = await axios.post(
       url,
@@ -122,6 +114,7 @@ export const getUnreadMessages = async () => {
     throw error;
   }
 };
+
 export const getAllContacts = async () => {
   const url =
     "/api-brasil/api/v2/whatsapp/getAllContacts";
@@ -420,7 +413,7 @@ export const sendOrcamentoMenu = async (number: string) => {
 };
 
 export const sendEntregasMenu = async (number: string) => {
-  const url = "/api-brasil/api/v2/whatsapp/sendText";
+  const url = "/api-brasil/api/v2/whatsapp/sendList";
    const body = {
     number,
     buttonText: "VER DESTINOS",
@@ -444,6 +437,18 @@ export const sendEntregasMenu = async (number: string) => {
     return response.data;
   } catch (error: any) {
     console.error("ERRO AO ENVIAR SUBMENU ENTREGAS:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const sendAutoReply = async (number: string, text: string) => {
+  const url = "/api-brasil/api/v2/whatsapp/sendText";
+  const body = { number, text };
+  try {
+    const response = await axios.post(url, body, { headers });
+    return response.data;
+  } catch (error: any) {
+    console.error("ERRO AO ENVIAR RESPOSTA AUTOMÁTICA:", error.response?.data || error.message);
     throw error;
   }
 };
