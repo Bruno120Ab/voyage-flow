@@ -231,15 +231,15 @@ const [enviandoQuebra, setEnviandoQuebra] =
       try {
       const texto = `
   🚌 *LINHA ${embarqueSelecionado.rota?.toUpperCase()}*
+      Hora em sistema: ${embarqueSelecionado.hora_saida_prevista || "--"}
 
   🔢 *Serviço:* #${embarqueSelecionado.servico}
   🚐 *Carro:* ${form.carro || "--"}
   👨‍✈️ *Motorista:* ${form.motorista || "--"}
 
-  *Saindo de Itambe as:* ${form.horaReal || "--"}
-  *Hora em sistema:* ${embarqueSelecionado.hora_saida_prevista || "--"}
+  *Saindo de Itambe as:* ${form.horaReal || "--"}                                         
 
-
+  *RODOVIARIA DE ITAMBÉ-BA*                                                                                                                                                                                             
 
   ${
     form.encomenda?.trim()
@@ -685,7 +685,7 @@ form.observacao?.trim()
                   <div className="mt-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-4 border-t border-border/50">
                     <div className="flex items-center gap-2.5 text-sm">
                       <div className="bg-secondary/50 p-2 rounded-lg text-muted-foreground"><Bus className="h-4 w-4" /></div>
-                      <div>
+                        <div>
                         <p className="text-[10px] uppercase text-muted-foreground font-semibold">Veículo</p>
                         <p className="font-medium">{item.carro && item.carro !== "--" ? item.carro : <span className="text-muted-foreground/60 italic">A definir</span>}</p>
                       </div>

@@ -1,496 +1,8 @@
-// import { useEffect, useMemo, useState } from "react";
-// import { supabase } from "@/integrations/supabase/client";
-
-// import { Card, CardContent } from "@/components/ui/card";
-// import { Input } from "@/components/ui/input";
-// import { Badge } from "@/components/ui/badge";
-
-// import {
-//   Bus,
-//   Clock,
-//   Search,
-//   CheckCircle2,
-//   AlertCircle,
-//   Loader2,
-//   ArrowRight,
-//   MapPin,
-//   CalendarX2,
-//   Layers,
-//   Phone,
-//   Instagram,
-//   Filter
-// } from "lucide-react";
-
-// type Embarque = {
-//   id: string;
-//   servico: string | null;
-//   rota: string | null;
-//   cidade_origem: string | null;
-//   cidade_destino: string | null;
-//   hora_saida_prevista: string | null;
-//   hora_real: string | null;
-//   carro: string | null;
-//   passou: boolean;
-//   status: string | null;
-//   previsao_chegada: string | null;
-// };
-
-// type FiltroRota = "todos" | "conquista" | "itapetinga";
-// type FiltroDestinoRapido = "todos" | "litoral_norte" | "extremo_sul" | "conquista_capital";
-
-// export default function PublicoEmbarques() {
-//   const [loading, setLoading] = useState(true);
-//   const [busca, setBusca] = useState("");
-//   const [embarques, setEmbarques] = useState<Embarque[]>([]);
-  
-//   // Filtros operacionais ativos
-//   const [filtroRota, setFiltroRota] = useState<FiltroRota>("todos");
-//   const [filtroDestino, setFiltroDestino] = useState<FiltroDestinoRapido>("todos");
-
-//   const carregar = async () => {
-//     setLoading(true);
-//     const { data } = await supabase
-//       .from("embarques_dia")
-//       .select(`
-//         id,
-//         servico,
-//         rota,
-//         cidade_origem,
-//         cidade_destino,
-//         hora_saida_prevista,
-//         hora_real,
-//         carro,
-//         passou,
-//         status,
-//         previsao_chegada
-//       `)
-//       .order("hora_saida_prevista", { ascending: true });
-
-//     setEmbarques((data || []) as Embarque[]);
-//     setLoading(false);
-//   };
-
-//   useEffect(() => {
-//     carregar();
-
-//     const channel = supabase
-//       .channel("embarques-publicos")
-//       .on(
-//         "postgres_changes",
-//         { event: "*", schema: "public", table: "embarques_dia" },
-//         () => carregar()
-//       )
-//       .subscribe();
-
-//     return () => {
-//       supabase.removeChannel(channel);
-//     };
-//   }, []);
-
-//   const parseMin = (hora?: string | null) => {
-//     if (!hora) return 0;
-//     const [h, m] = hora.slice(0, 5).split(":").map(Number);
-//     return h * 60 + m;
-//   };
-
-//   const obterStatus = (item: Embarque) => {
-//     if (item.passou) return { texto: "REALIZADO", corHeader: "bg-[#0A2342] text-white", icone: CheckCircle2 };
-    
-//     const agora = new Date();
-//     const atual = agora.getHours() * 60 + agora.getMinutes();
-//     const previsto = parseMin(item.hora_saida_prevista);
-//     const diff = previsto - atual;
-
-//     if (diff < 0) return { texto: `ATRASADO (${Math.abs(diff)} MIN)`, corHeader: "bg-rose-600 text-white", icone: AlertCircle };
-//     if (diff <= 20) return { texto: diff === 0 ? "EMBARCANDO" : `SAINDO EM ${diff} MIN`, corHeader: "bg-[#FFCC00] text-[#0A2342]", icone: Clock };
-    
-//     return { texto: "PROGRAMADO", corHeader: "bg-[#004B87] text-white", icone: Clock };
-//   };
-
-//   // Identifica se o veículo pertence a qualquer uma das rotas que passam por Itambé/Itapetinga rumo ao litoral ou extremo sul
-//   const ehRotaItapetinga = (item: Embarque) => {
-//     const destino = item.cidade_destino?.toLowerCase() || "";
-//     const rota = item.rota?.toLowerCase() || "";
-    
-//     return (
-//       destino.includes("ilheus") || 
-//       destino.includes("ilh") || 
-//       destino.includes("itabuna") || 
-//       destino.includes("itororo") || 
-//       destino.includes("floresta azul") || 
-//       destino.includes("ibicarai") || 
-//       destino.includes("firmino alves") || 
-//       destino.includes("canavieras") || 
-//       destino.includes("canavieiras") || 
-//       destino.includes("porto") || 
-//       destino.includes("eunapolis") || 
-//       destino.includes("prado") ||
-//       destino.includes("potiragua") ||
-//       destino.includes("itagimirim") ||
-//       destino.includes("itapetinga") ||
-//       destino.includes("itambe") ||
-//       rota.includes("itambe") ||
-//       rota.includes("itapetinga") ||
-//       rota.includes("potiragua") ||
-//       rota.includes("itororo") ||
-//       rota.includes("itabuna")
-//     );
-//   };
-
-//   // Classifica especificamente qual é o braço do itinerário (Cacau vs Extremo Sul)
-//   const obterTipoItinerarioExplicito = (item: Embarque) => {
-//     const destino = item.cidade_destino?.toLowerCase() || "";
-
-//     if (
-//       destino.includes("ilheus") || 
-//       destino.includes("ilh") || 
-//       destino.includes("canavieiras") || 
-//       destino.includes("canavieras") ||
-//       destino.includes("itabuna") ||
-//       destino.includes("itororo") ||
-//       destino.includes("floresta azul")
-//     ) {
-//       return "litoral_cacau";
-//     }
-
-//     if (
-//       destino.includes("porto") || 
-//       destino.includes("eunapolis") || 
-//       destino.includes("prado") ||
-//       destino.includes("potiragua") ||
-//       destino.includes("itagimirim")
-//     ) {
-//       return "extremo_sul";
-//     }
-
-//     return null;
-//   };
-
-//   const classificarMicroRegiao = (item: Embarque) => {
-//     const tipo = obterTipoItinerarioExplicito(item);
-//     if (tipo === "litoral_cacau") return "litoral_norte";
-//     if (tipo === "extremo_sul") return "extremo_sul";
-    
-//     const destino = item.cidade_destino?.toLowerCase() || "";
-//     if (destino.includes("conquista") || destino.includes("salvador") || destino.includes("vitoria")) return "conquista_capital";
-//     return "outros";
-//   };
-
-//   // Processamento da listagem filtrada limpa e sem palavras intrusas
-//   const listaFiltrada = useMemo(() => {
-//     return embarques.filter((item) => {
-//       const termo = busca.toLowerCase();
-//       const bateBusca = 
-//         item.servico?.toLowerCase().includes(termo) ||
-//         item.rota?.toLowerCase().includes(termo) ||
-//         item.cidade_origem?.toLowerCase().includes(termo) ||
-//         item.cidade_destino?.toLowerCase().includes(termo);
-
-//       if (!bateBusca) return false;
-
-//       const deFatoItapetinga = ehRotaItapetinga(item);
-//       if (filtroRota === "itapetinga" && !deFatoItapetinga) return false;
-//       if (filtroRota === "conquista" && deFatoItapetinga) return false;
-
-//       const microRegiao = classificarMicroRegiao(item);
-//       if (filtroDestino !== "todos" && microRegiao !== filtroDestino) return false;
-
-//       return true;
-//     });
-//   }, [embarques, busca, filtroRota, filtroDestino]);
-
-//   const contadores = useMemo(() => {
-//     let t = 0; let c = 0; let i = 0;
-//     embarques.forEach(item => {
-//       t++;
-//       if (ehRotaItapetinga(item)) i++; else c++;
-//     });
-//     return { todos: t, conquista: c, itapetinga: i };
-//   }, [embarques]);
-
-//   return (
-//     <div className="min-h-screen bg-slate-100 text-slate-900 antialiased font-sans pb-12">
-      
-//       {/* TOPBAR COMERCIAL - AGÊNCIA ITAMBÉ */}
-//       <div className="bg-[#FFCC00] text-[#0A2342] text-xs font-black uppercase tracking-wider py-2.5 px-4 shadow-sm border-b border-[#0A2342]/10">
-//         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-center sm:text-left">
-//           <div className="flex items-center gap-2">
-//             <span className="inline-block w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-//             📍 Agência Oficial Rodoviária de Itambé - BA
-//           </div>
-//           <div className="flex items-center flex-wrap justify-center sm:justify-end gap-x-6 gap-y-2 font-black">
-//             <a 
-//               href="https://wa.me/5577999999999" // Coloque o número do WhatsApp da agência de Itambé aqui
-//               target="_blank" 
-//               rel="noreferrer" 
-//               className="flex items-center gap-1.5 bg-[#0A2342] text-white px-3 py-1 rounded-md hover:bg-[#004B87] transition-all shadow-sm"
-//             >
-//               <Phone className="w-3.5 h-3.5 fill-white text-transparent" /> 
-//               WhatsApp da Agência
-//             </a>
-//             <a 
-//               href="https://instagram.com/novo_horizonte" // Coloque o link do Instagram da agência aqui
-//               target="_blank" 
-//               rel="noreferrer" 
-//               className="flex items-center gap-1.5 text-[#0A2342] hover:text-[#004B87] transition-colors"
-//             >
-//               <Instagram className="w-4 h-4" /> 
-//               Nosso Instagram
-//             </a>
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* HEADER */}
-//       <header className="bg-[#0A2342] text-white shadow-xl border-b-4 border-[#004B87]">
-//         <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-//           <div className="flex items-center gap-4">
-//             <div className="w-12 h-12 rounded-xl bg-[#FFCC00] text-[#0A2342] flex items-center justify-center shadow-lg shrink-0">
-//               <Bus className="w-6 h-6" />
-//             </div>
-//             <div>
-//               <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase">Novo Horizonte</h1>
-//               <p className="text-xs text-slate-300 font-medium tracking-wider uppercase">Painel de Embarques • Filial Itambé</p>
-//             </div>
-//           </div>
-//           <div className="inline-flex items-center gap-2 bg-white/10 text-white font-bold text-xs tracking-wider uppercase px-3 py-1.5 rounded-lg border border-white/20 self-start sm:self-center">
-//             <span className="w-2 h-2 rounded-full bg-[#FFCC00] animate-ping" /> Sincronizado via satélite
-//           </div>
-//         </div>
-//       </header>
-
-//       <div className="max-w-5xl mx-auto px-4 mt-8 sm:px-6">
-        
-//         {/* BUSCA */}
-//         <div className="relative mb-6 group">
-//           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#004B87] transition-colors" />
-//           <Input
-//             placeholder="Buscar destino final, conexões (Ex: Potiraguá, Itabuna, Conquista) ou serviço..."
-//             value={busca}
-//             onChange={(e) => setBusca(e.target.value)}
-//             className="pl-12 h-14 rounded-xl text-base shadow-sm border-slate-200 bg-white focus-visible:ring-2 focus-visible:ring-[#004B87]/20 focus-visible:border-[#004B87] transition-all font-medium"
-//           />
-//         </div>
-
-//         {/* FILTRO 1: LOGÍSTICA REGIONAL */}
-//         <div className="mb-4">
-//           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-2">1. Filtrar por Fluxo de Itinerário</span>
-//           <div className="flex flex-col sm:flex-row gap-2 bg-slate-200/80 p-1.5 rounded-2xl">
-//             <button onClick={() => setFiltroRota("todos")} className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black uppercase transition-all flex-1 ${filtroRota === "todos" ? "bg-slate-700 text-white shadow-sm" : "text-slate-600 hover:bg-slate-300/50"}`}>
-//               <Layers className="w-3.5 h-3.5" />
-//               <span>Todos os Carros ({contadores.todos})</span>
-//             </button>
-//             <button onClick={() => setFiltroRota("conquista")} className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black uppercase transition-all flex-1 ${filtroRota === "conquista" ? "bg-[#004B87] text-white shadow-sm" : "text-slate-600 hover:bg-slate-300/50"}`}>
-//               <MapPin className="w-3.5 h-3.5" />
-//               <span>Subindo Vitória da Conquista ({contadores.conquista})</span>
-//             </button>
-//             <button onClick={() => setFiltroRota("itapetinga")} className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black uppercase transition-all flex-1 ${filtroRota === "itapetinga" ? "bg-[#0A2342] text-white shadow-sm border-b-2 border-[#FFCC00]" : "text-slate-600 hover:bg-slate-300/50"}`}>
-//               <ArrowRight className="w-3.5 h-3.5" />
-//               <span>Descendo Itapetinga / Litoral ({contadores.itapetinga})</span>
-//             </button>
-//           </div>
-//         </div>
-
-//         {/* FILTRO 2: DESTINOS RECOMENDADOS EXPLICITADOS */}
-//         <div className="mb-6">
-//           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-2">2. Itinerários Expressos e Linhas Principais</span>
-//           <div className="grid grid-cols-2 sm:grid-cols-4 bg-white border border-slate-200 rounded-xl p-1 gap-1">
-//             {[
-//               { id: "todos", label: "Geral / Todos" },
-//               { id: "litoral_norte", label: "Eixo Itabuna / Ilhéus" },
-//               { id: "extremo_sul", label: "Eixo Eunápolis / Porto" },
-//               { id: "conquista_capital", label: "VDC / Salvador" }
-//             ].map((dest) => (
-//               <button
-//                 key={dest.id}
-//                 onClick={() => setFiltroDestino(dest.id as FiltroDestinoRapido)}
-//                 className={`py-2.5 px-2 text-[10px] sm:text-[11px] font-black uppercase rounded-lg transition-all text-center ${
-//                   filtroDestino === dest.id ? "bg-[#004B87] text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
-//                 }`}
-//               >
-//                 {dest.label}
-//               </button>
-//             ))}
-//           </div>
-//         </div>
-
-//         {/* RESET DE FILTROS */}
-//         {(filtroRota !== "todos" || filtroDestino !== "todos" || busca) && (
-//           <div className="mb-4 flex justify-between items-center bg-slate-200/50 border border-slate-300/60 rounded-xl p-2.5 px-4 text-xs">
-//             <div className="text-slate-600 font-medium flex items-center gap-1.5">
-//               <Filter className="w-3.5 h-3.5 text-slate-500" />
-//               Filtros ativos. Mostrando <strong className="text-[#0A2342]">{listaFiltrada.length}</strong> de {embarques.length} carros.
-//             </div>
-//             <button onClick={() => { setFiltroRota("todos"); setFiltroDestino("todos"); setBusca(""); }} className="text-xs font-black text-red-600 uppercase hover:underline">
-//               Limpar Filtros ×
-//             </button>
-//           </div>
-//         )}
-
-//         {/* LISTAGEM DOS CARDS */}
-//         {loading ? (
-//           <div className="py-32 flex flex-col items-center justify-center gap-3">
-//             <Loader2 className="h-8 w-8 animate-spin text-[#004B87]" />
-//             <p className="text-sm text-slate-500 font-medium tracking-wide">Buscando banco de dados Novo Horizonte...</p>
-//           </div>
-//         ) : listaFiltrada.length === 0 ? (
-//           <Card className="border-dashed border-2 py-16 text-center rounded-2xl bg-white border-slate-300 shadow-inner">
-//             <CardContent className="flex flex-col items-center justify-center gap-4">
-//               <div className="p-4 bg-slate-100 rounded-full text-slate-400">
-//                 <CalendarX2 className="w-8 h-8" />
-//               </div>
-//               <div>
-//                 <h3 className="text-base font-black text-[#0A2342] uppercase tracking-wider">Nenhum ônibus localizado</h3>
-//                 <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">Não há veículos correspondentes na agência de Itambé.</p>
-//               </div>
-//             </CardContent>
-//           </Card>
-//         ) : (
-//           <div className="space-y-4">
-//             {listaFiltrada.map((item) => {
-//               const statusInfo = obterStatus(item);
-//               const Icon = statusInfo.icone;
-//               const ehDoLitoral = ehRotaItapetinga(item);
-//               const tipoItinerario = obterTipoItinerarioExplicito(item);
-
-//               return (
-//                 <Card key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 bg-white">
-//                   <CardContent className="p-0">
-                    
-//                     {/* CABEÇALHO DO CARD */}
-//                     <div className={`flex flex-col sm:flex-row sm:items-center justify-between px-6 py-3 gap-3 ${statusInfo.corHeader}`}>
-//                       <div className="flex items-center gap-3">
-//                         <span className="inline-flex items-center gap-1.5 text-sm font-black tracking-wider uppercase">
-//                           <Icon className="w-4 h-4" />
-//                           {statusInfo.texto}
-//                         </span>
-//                         {item.carro && item.carro !== "--" && (
-//                           <span className="font-mono text-xs font-bold bg-white/20 px-2 py-0.5 rounded text-white border border-white/10">
-//                             Prefixo: {item.carro}
-//                           </span>
-//                         )}
-//                       </div>
-                      
-//                       <div className="flex flex-wrap items-center gap-2 justify-between sm:justify-end">
-//                         <span className={`text-[10px] font-black px-2 py-0.5 rounded tracking-wide uppercase shadow-sm ${
-//                           ehDoLitoral ? "bg-[#FFCC00] text-[#0A2342] border border-[#0A2342]/10" : "bg-white/20 text-white"
-//                         }`}>
-//                           {ehDoLitoral ? "Via Itapetinga" : "Via Conquista"}
-//                         </span>
-//                         <span className="font-mono bg-white text-[#0A2342] px-2 py-0.5 rounded text-xs font-black border">
-//                           #{item.servico}
-//                         </span>
-//                       </div>
-//                     </div>
-
-//                     {/* CORPO DO CARD */}
-//                     <div className="p-5 sm:p-6">
-                      
-//                       {/* DESTINO */}
-//                       <div className="flex flex-wrap items-center gap-y-2 gap-x-3 mb-4">
-//                         <div className="flex items-center gap-2">
-//                           <MapPin className="w-4 h-4 text-[#004B87] shrink-0" />
-//                           <span className="text-sm font-bold text-slate-500 uppercase tracking-wide">
-//                             {item.cidade_origem || "Origem"}
-//                           </span>
-//                         </div>
-//                         <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
-//                         <div className="flex items-center gap-2">
-//                           <span className="text-xl sm:text-2xl font-black tracking-tight text-[#0A2342] uppercase">
-//                             {item.cidade_destino || "Destino"}
-//                           </span>
-//                         </div>
-//                       </div>
-
-//                       {/* BANNER DINÂMICO EXPLICITANDO O ITINERÁRIO COMPLETO */}
-//                       {tipoItinerario === "litoral_cacau" && (
-//                         <div className="mb-4 bg-amber-500/10 border border-amber-500/20 text-[#0A2342] rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wide">
-//                           📍 <span className="text-[#004B87]">Itinerário Litoral Norte:</span> Itambé • Itapetinga • Itororó • Floresta Azul • Itabuna • Ilhéus / Canavieiras
-//                         </div>
-//                       )}
-
-//                       {tipoItinerario === "extremo_sul" && (
-//                         <div className="mb-4 bg-blue-500/10 border border-blue-500/20 text-[#004B87] rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wide">
-//                           📍 <span className="text-[#0A2342]">Itinerário Extremo Sul:</span> Itambé • Itapetinga • Potiraguá • Itagimirim • Eunápolis • Porto Seguro
-//                         </div>
-//                       )}
-
-//                       {/* GRID DE HORÁRIOS */}
-//                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-//                         <div className="rounded-xl bg-[#004B87]/5 border border-[#004B87]/10 p-3.5">
-//                           <span className="text-[9px] font-black text-[#004B87] uppercase tracking-wider block opacity-80">Previsão Saída</span>
-//                           <span className="text-xl sm:text-2xl font-black mt-0.5 block font-mono text-[#004B87]">{item.hora_saida_prevista || "--:--"}</span>
-//                         </div>
-//                         <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/10 p-3.5">
-//                           <span className="text-[9px] font-black text-emerald-700 uppercase tracking-wider block opacity-80">Partida Real</span>
-//                           <span className="text-xl sm:text-2xl font-black mt-0.5 block font-mono text-emerald-600">{item.hora_real || "--:--"}</span>
-//                         </div>
-//                         <div className="col-span-2 md:col-span-1 rounded-xl bg-slate-50 border border-slate-100 p-3.5 flex flex-col justify-center">
-//                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Itinerário Operacional</span>
-//                           <span className="text-xs font-bold mt-1 block text-slate-700 truncate uppercase">{item.rota || "Não informado"}</span>
-//                         </div>
-//                       </div>
-
-//                     </div>
-
-//                   </CardContent>
-//                 </Card>
-//               );
-//             })}
-//           </div>
-//         )}
-
-//         {/* FOOTER */}
-//         <footer className="mt-12 text-center border-t border-slate-200 pt-6">
-//           <p className="text-[11px] text-slate-400 font-black tracking-wider uppercase">Plataforma Digital de Autoatendimento • Agência Itambé - BA</p>
-//           <p className="text-[10px] text-slate-400 mt-1">Horários atualizados automaticamente em conformidade com o sistema de tráfego centralizado da Novo Horizonte.</p>
-//         </footer>
-
-//       </div>
-//     </div>
-//   );
-// }import { useEffect, useMemo, useState, useCallback } from "react";import { supabase } from "@/integrations/supabase/client";
-
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-
-import {
-  Bus,
-  Clock,
-  Search,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  ArrowRight,
-  MapPin,
-  CalendarX2,
-  Layers,
-  Phone,
-  Filter,
-  MessageCircle,
-  Package,
-  Ticket,
-  Truck,
-  History,
-  HeartHandshake,
-  Compass,
-  Shuffle,
-  Share2,
-  Navigation,
-  Sparkles,
-  ArrowUpRight,
-  ArrowDownRight,
-  CreditCard,
-  QrCode,
-  Coins
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-
-// ==========================================
-// TIPOS E CONFIGURAÇÕES
-// ==========================================
-
+import { AlertCircle, ArrowDownRight, ArrowRight, ArrowUpRight, Bus, CalendarX2, CheckCircle2, ChevronLeft, ChevronRight, Clock, Coins, Compass, CreditCard, Filter, HeartHandshake, History, Layers, Loader2, MapPin, MessageCircle, Navigation, PackageCheck, QrCode, Search, Share2, Shuffle, Ticket, Truck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Embarque = {
   id: string;
@@ -514,13 +26,15 @@ const WHATSAPP_ENCOMENDAS_LINK = "https://wa.me/5577999999999?text=Ol%C3%A1%2C%2
 const WHATSAPP_OUTROS_TRECHOS_LINK = "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20estou%20em%20outra%20cidade%20e%20gostaria%20de%20fazer%20um%20or%C3%A7amento%20de%20viagem.";
 const WHATSAPP_GRATUIDADES_LINK = "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20como%20funciona%20a%20reserva%20de%20vagas%20para%20Idoso%2C%20Id%20Jovem%20ou%20Passe%20Livre.";
 
-const ROTAS_DESTAQUE = [
-  { origem: "Itambé", destino: "Brasília", uf: "DF", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Bras%C3%ADlia%20-%20DF." },
+const ROTAS_INTERESTADUAIS = [
   { origem: "Itambé", destino: "São Paulo", uf: "SP", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20S%C3%A3o%20Paulo%20-%20SP." },
+  { origem: "Itambé", destino: "Brasília", uf: "DF", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Bras%C3%ADlia%20-%20DF." },
   { origem: "Itambé", destino: "Rio de Janeiro", uf: "RJ", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Rio%20de%20Janeiro%20-%20RJ." },
-  { origem: "Itambé", destino: "Barreiras", uf: "BA", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Barreiras%20-%20BA." },
-  { origem: "Itambé", destino: "Tocantins", uf: "TO", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20o%20Tocantins." },
   { origem: "Itambé", destino: "Montes Claros", uf: "MG", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Montes%20Claros%20-%20MG." },
+  { origem: "Itambé", destino: "Campinas", uf: "SP", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Campinas%20-%20SP." },
+  { origem: "Itambé", destino: "Goiânia", uf: "GO", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Goi%C3%A2nia%20-%20GO." },
+  { origem: "Itambé", destino: "Tocantins", uf: "TO", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20o%20Tocantins." },
+  { origem: "Itambé", destino: "Belo Horizonte", uf: "MG", linkZap: "https://wa.me/5577999999999?text=Ol%C3%A1%2C%20gostaria%20de%20consultar%20hor%C3%A1rios%20e%20comprar%20passagem%20de%20Itamb%C3%A9%20para%20Belo%20Horizonte%20-%20MG." },
 ];
 
 const ROTAS_NOVOS_DESTINOS = [
@@ -546,8 +60,6 @@ const parseMin = (hora?: string | null): number => {
   const [h, m] = partes.map(Number);
   return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
 };
-
-const maxMin = (min: number, val: number) => (val < min ? min : val);
 
 const obterStatus = (item: Embarque) => {
   if (item.passou) return { texto: "Embarque Encerrado", corHeader: "bg-slate-400 text-white", icone: CheckCircle2 };
@@ -595,10 +107,10 @@ const obterTipoItinerarioExplicito = (item: Embarque): "sertao_oeste" | "litoral
   const destino = item.cidade_destino?.toLowerCase() || "";
   const linha = item.linha?.toLowerCase() || "";
 
-  const envolveCanavieiras = origem.includes("canavieiras") || origem.includes("canavieras") || destino.includes("canavieiras") || destino.includes("canavieras");
-  const envolveConquista = origem.includes("conquista") || origem.includes("vitoria da conquista") || destino.includes("conquista") || destino.includes("vitoria da conquista");
+  const CustomCanavieiras = origem.includes("canavieiras") || origem.includes("canavieras") || destino.includes("canavieiras") || destino.includes("canavieras");
+  const EnvolveConquista = origem.includes("conquista") || origem.includes("vitoria da conquista") || destino.includes("conquista") || destino.includes("vitoria da conquista");
   
-  if (envolveCanavieiras && envolveConquista) return "conexao_sp";
+  if (CustomCanavieiras && EnvolveConquista) return "conexao_sp";
 
   const vaiParaSertaoOeste = 
     destino.includes("barreiras") || 
@@ -630,7 +142,6 @@ const classificarMicroRegiao = (item: Embarque): string => {
   return "outros";
 };
 
-// Remove acentos e caracteres especiais para melhorar a precisão da busca do usuário
 const normalizarTexto = (texto: string): string => {
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 };
@@ -644,9 +155,22 @@ export default function PublicoEmbarques() {
   const [mostrarPassados, setMostrarPassados] = useState(false);
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
+  const carrosselRef = useRef<HTMLDivElement>(null);
+
   const alternarFiltroFluxo = (novoFiltro: FiltroFluxo) => {
     setFiltroFluxo(novoFiltro);
     setFiltroDestino("todos"); 
+  };
+
+  const scrollCarrossel = (direcao: "esquerda" | "direita") => {
+    if (carrosselRef.current) {
+      const { scrollLeft, clientWidth } = carrosselRef.current;
+      const deslocamento = clientWidth * 0.75;
+      carrosselRef.current.scrollTo({
+        left: direcao === "esquerda" ? scrollLeft - deslocamento : scrollLeft + deslocamento,
+        behavior: "smooth"
+      });
+    }
   };
 
   const carregar = useCallback(async () => {
@@ -1090,30 +614,55 @@ export default function PublicoEmbarques() {
               </div>
             )}
 
-            {/* SEÇÃO: COMPRAR PASSAGENS */}
-            <div className="mt-10 pt-6 border-t border-slate-200">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600 border border-emerald-100">
-                  <Navigation className="w-4 h-4" />
+            {/* SEÇÃO DO CARROSSEL: APENAS VIAGENS INTERESTADUAIS */}
+            <div className="mt-10 pt-6 border-t border-slate-200 relative group">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-blue-50 rounded-lg text-[#004B87] border border-blue-100">
+                    <Navigation className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-black uppercase text-[#0A2342] tracking-wider flex items-center gap-1.5">
+                      Destinos Interestaduais <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded">Outros Estados</span>
+                    </h2>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Viagens de longa distância saindo de Itambé (Arraste para o lado ou use as setas)
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-xs font-black uppercase text-[#0A2342] tracking-wider">
-                    Passagens Saindo de Itambé
-                  </h2>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Reserve seu assento direto no WhatsApp com suporte da nossa filial
-                  </p>
+
+                {/* Controles do Carrossel */}
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <button 
+                    onClick={() => scrollCarrossel("esquerda")}
+                    className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-600 shadow-sm transition-all"
+                    aria-label="Destinos anteriores"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => scrollCarrossel("direita")}
+                    className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-600 shadow-sm transition-all"
+                    aria-label="Próximos destinos"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {ROTAS_DESTAQUE.map((rota, idx) => (
+              {/* Carrossel Horizontal Nativo */}
+              <div 
+                ref={carrosselRef}
+                className="flex gap-4 overflow-x-auto pb-4 scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                {ROTAS_INTERESTADUAIS.map((rota, idx) => (
                   <a
                     key={idx}
                     href={rota.linkZap}
                     target="_blank"
                     rel="noreferrer"
-                    className="bg-white border border-slate-200 rounded-xl p-3.5 transition-all duration-300 group shadow-sm hover:shadow-md hover:border-emerald-500 hover:ring-4 hover:ring-emerald-500/5 flex flex-col justify-between"
+                    className="min-w-[80%] sm:min-w-[45%] md:min-w-[31%] bg-white border border-slate-200 rounded-xl p-4 transition-all duration-300 group shadow-sm hover:shadow-md hover:border-emerald-500 hover:ring-4 hover:ring-emerald-500/5 flex flex-col justify-between snap-start shrink-0"
                   >
                     <div>
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
@@ -1125,7 +674,7 @@ export default function PublicoEmbarques() {
                         <span className="truncate uppercase tracking-tight group-hover:text-emerald-700 transition-colors">
                           {rota.destino}
                         </span>
-                        <span className="text-[10px] font-mono font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-100/50 px-1.5 py-0.5 rounded uppercase shrink-0">
+                        <span className="text-[10px] font-mono font-extrabold text-blue-700 bg-blue-50 border border-blue-100/50 px-1.5 py-0.5 rounded uppercase shrink-0">
                           {rota.uf}
                         </span>
                       </div>
@@ -1133,7 +682,7 @@ export default function PublicoEmbarques() {
                     
                     <div className="text-[11px] font-bold text-emerald-600 bg-emerald-50/50 group-hover:bg-emerald-50 mt-4 px-2.5 py-1.5 rounded-lg border border-emerald-500/10 flex items-center gap-2 uppercase tracking-wider transition-colors">
                       <MessageCircle className="w-3.5 h-3.5 fill-emerald-600 text-transparent shrink-0" />
-                      <span>Garantir Vaga</span>
+                      <span>Consultar Horários</span>
                       <ArrowRight className="w-3 h-3 ml-auto transition-transform group-hover:translate-x-1 text-emerald-600" />
                     </div>
                   </a>
@@ -1141,7 +690,7 @@ export default function PublicoEmbarques() {
               </div>
             </div>
 
-            {/* SEÇÃO REFORMULADA: NOVOS DESTINOS */}
+            {/* SEÇÃO: NOVOS DESTINOS (ONDE VOCÊ ESTIVER) */}
             <div className="mt-10 pt-6 border-t border-slate-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="flex items-start gap-3">
@@ -1196,6 +745,38 @@ export default function PublicoEmbarques() {
                     </div>
                   </a>
                 ))}
+              </div>
+            </div>
+
+            {/* NOVA SEÇÃO: BANNER DE ENCOMENDAS INFERIOR */}
+            <div className="mt-8 pt-6 border-t border-slate-200">
+              <div className="bg-[#0A2342] text-white border-2 border-dashed border-[#FFCC00]/40 rounded-2xl p-4 md:p-6 shadow-md bg-gradient-to-br from-[#0A2342] to-[#004B87] relative overflow-hidden">
+                <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full pointer-events-none" />
+                
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 relative z-10">
+                  <div className="flex items-center gap-3.5 text-center md:text-left flex-col md:flex-row">
+                    <div className="p-3 bg-[#FFCC00] rounded-xl text-[#0A2342] shrink-0 shadow-sm animate-bounce">
+                      <PackageCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black uppercase text-[#FFCC00] tracking-wide">
+                        Envio de Cargas e Encomendas Comerciais
+                      </h4>
+                      <p className="text-xs text-slate-200 font-medium mt-1 leading-relaxed max-w-2xl">
+                        Precisa despachar caixas, fardos ou mercadorias com rapidez e total segurança? Fale diretamente com o setor de logística da agência de Itambé e faça sua cotação.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <a 
+                    href={WHATSAPP_ENCOMENDAS_LINK} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="w-full md:w-auto text-center bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 whitespace-nowrap"
+                  >
+                    Despachar Carga
+                  </a>
+                </div>
               </div>
             </div>
 

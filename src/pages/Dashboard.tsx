@@ -246,6 +246,14 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
   >
     Epass →
   </a>
+   <a
+    href="https://voyage-flow-henna.vercel.app/publico"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center text-sm font-medium text-primary hover:opacity-80 transition-opacity"
+  >
+    Central NH →
+  </a>
 </div>
 
   </div>
