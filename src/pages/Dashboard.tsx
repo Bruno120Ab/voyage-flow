@@ -1,13 +1,753 @@
+// import { useEffect, useState } from "react";
+// import { Card } from "@/components/ui/card";
+// import { Badge } from "@/components/ui/badge";
+// import { Bus, Users, TrendingUp, AlertTriangle, Calendar, Star, CheckCircle2, ArrowUpRight, ArrowDownRight, Loader2, DollarSign, Wallet, Activity, MessageCircle, Package, Target, ListTodo, Clock, Truck, Briefcase } from "lucide-react";
+// import { Progress } from "@/components/ui/progress";
+// import { supabase } from "@/integrations/supabase/client";
+// import { useAuth } from "@/contexts/AuthContext";
+// import { Button } from "@/components/ui/button";
+// import { Input } from "@/components/ui/input";
+// import { sendText, getAllContacts, getAllLabels } from "@/utils/sendZapApi";interface DashboardStats {
+//   faturamentoMes: number;
+//   custoMes: number;
+//   lucroMes: number;
+//   comissaoEstimada: number;
+  
+//   valorEmNegociacao: number;
+//   comissaoPotencial: number;
+//   leadsAtivos: number;
+
+//   totalPassageiros: number;
+//   passageirosInativos: number;
+//   oportunidadesRetorno: number;
+
+//   veiculosOperando: number;
+//   veiculosManutencao: number;
+  
+//   proximos: any[];
+//   atrasadosFrota: number;
+//   proxFrota: any;
+//   subindo: any[];
+//   descendo: any[];
+//   proxSubindo: any;
+//   proxDescendo: any;
+//   atrasadosSubindo: number;
+//   atrasadosDescendo: number;
+//   entregasComissaoMes: number;
+//   entregasMetaMes: number;
+//   entregasEnviadasMes: number;
+//   entregasRecebidasMes: number;
+//   tarefasHoje: any[];
+// }
+
+// export default function Dashboard() {
+//   const { profile } = useAuth();
+//   const [stats, setStats] = useState<DashboardStats | null>(null);
+// const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
+  
+//   useEffect(() => {
+//     const load = async () => {
+//       const now = new Date().toISOString();
+//       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      
+//       const monthStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+//       const today = new Date().toISOString().slice(0, 10);
+
+//       const [vendasMonth, embFuture, pax, lds, veics, embDiaResp, entregasResp, tarefasResp] = await Promise.all([
+//         supabase.from("vendas_diarias").select("valor").gte("data", monthStartDate),
+//         supabase.from("embarques").select("*, veiculos(placa)").gte("data_saida", now).order("data_saida").limit(5),
+//         supabase.from("passageiros").select("id, ticket_medio, tag, ultima_viagem, total_viagens"),
+//         supabase.from("leads").select("id, valor_estimado, etapa"),
+//         supabase.from("veiculos").select("id, status"),
+//         supabase.from("embarques_dia").select("*"),
+//         supabase.from("entregas").select("tipo, comissao, data_operacao").gte("data_operacao", monthStartDate),
+//         supabase.from("tarefas").select("*").eq("data", today).order("hora", { ascending: true }),
+//       ]);
+
+//       // Financeiro
+//       const faturamentoMes = (vendasMonth.data ?? []).reduce((s, e) => s + Number(e.valor || 0), 0);
+//       const custoMes = 0;
+//       const lucroMes = faturamentoMes - custoMes;
+//       const comissaoEstimada = faturamentoMes * 0.08;
+
+//       // Comercial (WhatsApp Leads Ativos)
+//       let leadsAtivosCount = 0;
+//       try {
+//         const labelsData = await getAllLabels();
+//         const labels = Array.isArray(labelsData) ? labelsData : (labelsData?.data || []);
+        
+//         const targetLabelIds = labels
+//           .filter((l: any) => {
+//             const name = (l.name || "").toLowerCase();
+//             return name.includes("vender") || name.includes("cliente nh");
+//           })
+//           .map((l: any) => String(l.id));
+
+//         const contactsData = await getAllContacts();
+//         const contacts = Array.isArray(contactsData) ? contactsData : (contactsData?.data || []);
+
+//         leadsAtivosCount = contacts.filter((c: any) => {
+//           const cLabels = c.labels || c.data?.labels || [];
+//           if (!Array.isArray(cLabels)) return false;
+//           return cLabels.some((lbl: any) => targetLabelIds.includes(String(lbl)));
+//         }).length;
+//       } catch (e) {
+//         console.error("Erro ao buscar contatos do WhatsApp:", e);
+//         const leadsData = lds.data ?? [];
+//         leadsAtivosCount = leadsData.filter(l => ["novo", "contato", "negociacao", "aguardando"].includes(l.etapa)).length;
+//       }
+
+//       const leadsDataForFinance = lds.data ?? [];
+//       const valorEmNegociacao = leadsDataForFinance
+//         .filter(l => ["novo", "contato", "negociacao", "aguardando"].includes(l.etapa))
+//         .reduce((s, l) => s + Number(l.valor_estimado || 0), 0);
+//       const comissaoPotencial = valorEmNegociacao * 0.08;
+
+//       // Passageiros
+//       const paxData = pax.data ?? [];
+//       const oportunidadesRetorno = paxData.filter(p => p.tag === "retorno" || p.tag === "quente").length;
+//       const passageirosInativos = paxData.filter(p => {
+//         if (p.tag === "inativo") return true;
+//         if (!p.ultima_viagem) return Number(p.total_viagens) > 0;
+//         const D60 = 60 * 24 * 60 * 60 * 1000;
+//         return Date.now() - new Date(p.ultima_viagem).getTime() > D60;
+//       }).length;
+
+//       // Frota (Veículos)
+//       const veicData = veics.data ?? [];
+//       const veiculosOperando = veicData.filter(v => v.status === "operando").length;
+//       const veiculosManutencao = veicData.filter(v => v.status === "manutencao").length;
+
+//       // Frotas KPI (Hoje)
+//       const embDia = embDiaResp.data ?? [];
+//       const nowTime = new Date();
+//       const agoraMin = nowTime.getHours() * 60 + nowTime.getMinutes();
+//       const parseTimeMin = (hora: string | null) => {
+//         if (!hora || typeof hora !== "string") return null;
+//         const horaFormatada = hora.slice(0, 5);
+//         if (!horaFormatada.includes(":")) return null;
+//         const [h, m] = horaFormatada.split(":").map(Number);
+//         if (isNaN(h) || isNaN(m)) return null;
+//         return h * 60 + m;
+//       };
+      
+//       let proxFrota = null;
+//       let minDiffPos = Infinity;
+//       let atrasadosFrota = 0;
+
+//       for (const e of embDia) {
+//         if (e.passou) continue;
+//         const t = parseTimeMin(e.hora_saida_prevista || e.previsao_chegada);
+//         if (t === null) continue;
+//         const diff = t - agoraMin;
+//         if (diff < 0) {
+//           atrasadosFrota++;
+//         } else {
+//           if (diff < minDiffPos) {
+//             minDiffPos = diff;
+//             proxFrota = e;
+//           }
+//         }
+//       }
+
+//       // Subindo / Descendo
+//       const computeDir = (lista: any[]) => {
+//         let prox: any = null;
+//         let minDiff = Infinity;
+//         let atrasados = 0;
+//         for (const e of lista) {
+//           if (e.passou) continue;
+//           const t = parseTimeMin(e.hora_saida_prevista || e.previsao_chegada);
+//           if (t === null) continue;
+//           const diff = t - agoraMin;
+//           if (diff < 0) atrasados++;
+//           else if (diff < minDiff) { minDiff = diff; prox = e; }
+//         }
+//         return { prox, atrasados };
+//       };
+//       const subindo = embDia.filter((e: any) => e.sentido === "subida");
+//       const descendo = embDia.filter((e: any) => e.sentido === "descida");
+//       const sUp = computeDir(subindo);
+//       const sDown = computeDir(descendo);
+
+
+//       // Entregas do mês
+//       const entregasData = entregasResp.data ?? [];
+//       const entregasComissaoMes = entregasData.reduce((s: number, e: any) => s + Number(e.comissao || 0), 0);
+//       const entregasEnviadasMes = entregasData.filter((e: any) => e.tipo === "enviada").length;
+//       const entregasRecebidasMes = entregasData.filter((e: any) => e.tipo === "recebida").length;
+//       const entregasMetaMes = 100;
+
+//       setStats({
+//         faturamentoMes, custoMes, lucroMes, comissaoEstimada,
+//         valorEmNegociacao, comissaoPotencial, leadsAtivos: leadsAtivosCount,
+//         totalPassageiros: paxData.length, passageirosInativos, oportunidadesRetorno,
+//         veiculosOperando, veiculosManutencao,
+//         proximos: embFuture.data ?? [],
+//         atrasadosFrota, proxFrota,
+//         subindo, descendo,
+//         proxSubindo: sUp.prox, proxDescendo: sDown.prox,
+//         atrasadosSubindo: sUp.atrasados, atrasadosDescendo: sDown.atrasados,
+//         entregasComissaoMes, entregasMetaMes, entregasEnviadasMes, entregasRecebidasMes,
+//         tarefasHoje: tarefasResp.data ?? [],
+//       });
+//     };
+//     load();
+//   }, []);
+
+//   if (!stats) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+
+//   return (
+//     <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
+//       <div className="relative overflow-hidden rounded-2xl bg-gradient-hero border border-border p-8">
+//         <div className="absolute inset-0 bg-gradient-glow opacity-60" />
+//         {/* <div className="relative flex items-center justify-between flex-wrap gap-4">
+//           <div>
+//             <p className="text-xs uppercase tracking-widest text-primary/80 font-medium mb-2">Painel Consolidado</p>
+//             <h1 className="font-display text-3xl lg:text-4xl font-bold">Olá, {profile?.nome?.split(" ")[0] || "agente"} 👋</h1>
+//             <p className="text-muted-foreground mt-2 max-w-xl">
+//               Você tem <span className="text-foreground font-medium">{stats.proximos.length} embarques próximos</span> e <span className="text-foreground font-medium">{stats.leadsAtivos} leads</span> em andamento.
+//             </p>
+//           </div>
+//           <div className="text-right">
+//             <p className="text-xs text-muted-foreground">Hoje</p>
+//             <p className="font-display font-semibold text-lg">{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</p>
+//           </div>
+//         </div> */}
+//         <div className="relative flex items-center justify-between flex-wrap gap-4">
+//   <div>
+//     <p className="text-xs uppercase tracking-widest text-primary/80 font-medium mb-2">
+//       Painel Consolidado
+//     </p>
+
+//     <h1 className="font-display text-3xl lg:text-4xl font-bold">
+//       Olá, {profile?.nome?.split(" ")[0] || "agente"} 👋
+//     </h1>
+
+//     <p className="text-muted-foreground mt-2 max-w-xl">
+//       Você tem{" "}
+//       <span className="text-foreground font-medium">
+//         {stats.proximos.length} embarques próximos
+//       </span>{" "}
+//       e{" "}
+//       <span className="text-foreground font-medium">
+//         {stats.leadsAtivos} leads
+//       </span>{" "}
+//       em andamento.
+//     </p>
+
+//     {/* Botões de Ação */}
+// {/* LINKS E FERRAMENTAS OPERACIONAIS DE BALCÃO */}
+// <div className="mt-6">
+//   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+//     <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+//     Sistemas Operacionais Novo Horizonte
+//   </p>
+  
+//   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+//     {/* EPASS */}
+//     <a
+//       href="http://epass.com.br/epass/vendas/pesquisa"
+//       target="_blank"
+//       rel="noopener noreferrer"
+//       className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-sm"
+//     >
+//       <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-500/20 transition-colors shrink-0">
+//         <Briefcase className="h-5 w-5" /> {/* Você pode trocar por Ticket se tiver no seu pacote, mas Briefcase ou CreditCard funcionam bem */}
+//       </div>
+//       <div className="min-w-0">
+//         <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+//           Epass <span className="text-xs font-normal text-muted-foreground group-hover:translate-x-0.5 transition-transform">→</span>
+//         </p>
+//         <p className="text-xs text-muted-foreground truncate">Venda e pesquisa de passagens</p>
+//       </div>
+//     </a>
+
+//     {/* CENTRAL NH */}
+//     <a
+//       href="https://voyage-flow-henna.vercel.app/publico"
+//       target="_blank"
+//       rel="noopener noreferrer"
+//       className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-sm"
+//     >
+//       <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
+//         <Truck className="h-5 w-5" />
+//       </div>
+//       <div className="min-w-0">
+//         <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+//           Central NH <span className="text-xs font-normal text-muted-foreground group-hover:translate-x-0.5 transition-transform">→</span>
+//         </p>
+//         <p className="text-xs text-muted-foreground truncate">Monitoramento de mapas e carros</p>
+//       </div>
+//     </a>
+
+//     {/* RPA */}
+//     <a
+//       href="https://voyage-flow-henna.vercel.app/publico"
+//       target="_blank"
+//       rel="noopener noreferrer"
+//       className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-sm"
+//     >
+//       <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:bg-purple-500/20 transition-colors shrink-0">
+//         <Package className="h-5 w-5" />
+//       </div>
+//       <div className="min-w-0">
+//         <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+//           RPA <span className="text-xs font-normal text-muted-foreground group-hover:translate-x-0.5 transition-transform">→</span>
+//         </p>
+//         <p className="text-xs text-muted-foreground truncate">Sistema oficial de encomendas</p>
+//       </div>
+//     </a>
+//   </div>
+// </div>
+
+//   </div>
+
+//   <div className="text-right">
+//     <p className="text-xs text-muted-foreground">Hoje</p>
+//     <p className="font-display font-semibold text-lg">
+//       {new Date().toLocaleDateString("pt-BR", {
+//         weekday: "long",
+//         day: "2-digit",
+//         month: "long",
+//       })}
+//     </p>
+//   </div>
+// </div>
+//       </div>
+
+//       <div>
+//         <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><DollarSign className="h-5 w-5 text-primary" /> Visão Financeira e Geral</h2>
+//         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+//           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-primary group">
+//             <p className="text-xs text-muted-foreground uppercase tracking-wide">Faturamento do Mês</p>
+//             <p className="mt-2 font-display text-2xl font-bold text-gradient-gold">R$ {stats.faturamentoMes.toLocaleString("pt-BR")}</p>
+//             <p className="text-xs text-muted-foreground mt-2">Valor total vendido no mês</p>
+//           </Card>
+//           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-success group">
+//             <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">Minha Comissão <Wallet className="h-4 w-4 text-success opacity-80" /></p>
+//             <p className="mt-2 font-display text-2xl font-bold text-success">R$ {stats.comissaoEstimada.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+//             <p className="text-xs text-muted-foreground mt-2">8% do Faturamento</p>
+//           </Card>
+//           <Card className="glass-card p-5 hover:border-primary/40 transition-all border-l-4 border-l-warning group">
+//             <p className="text-xs text-muted-foreground uppercase tracking-wide">Pipeline Negociação</p>
+//             <p className="mt-2 font-display text-2xl font-bold">R$ {stats.valorEmNegociacao.toLocaleString("pt-BR")}</p>
+//             <div className="mt-2 flex items-center gap-1.5 text-xs">
+//               <span className="text-muted-foreground">Comissão:</span>
+//               <span className="text-success font-semibold">R$ {stats.comissaoPotencial.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+//             </div>
+//           </Card>
+//           <Card className="glass-card p-5 hover:border-primary/40 transition-all group">
+//             <p className="text-xs text-muted-foreground uppercase tracking-wide flex justify-between">Leads Ativos <Activity className="h-4 w-4 opacity-50" /></p>
+//             <p className="mt-2 font-display text-2xl font-bold">{stats.leadsAtivos}</p>
+//             <p className="text-xs text-muted-foreground mt-2">Oportunidades abertas</p>
+//           </Card>
+//         </div>
+//       </div>
+
+//       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+//         {/* Meta de Entregas */}
+//         <Card className="glass-card p-6 border-l-4 border-l-primary">
+//           <div className="flex items-start justify-between mb-4">
+//             <div>
+//               <h2 className="font-display font-semibold text-lg flex items-center gap-2">
+//                 <Package className="h-5 w-5 text-primary" /> Meta de Entregas
+//               </h2>
+//               <p className="text-xs text-muted-foreground mt-0.5">Comissão acumulada no mês</p>
+//             </div>
+//             <Target className="h-5 w-5 text-primary/60" />
+//           </div>
+//           {(() => {
+//             const pct = Math.min(100, (stats.entregasComissaoMes / stats.entregasMetaMes) * 100);
+//             return (
+//               <>
+//                 <div className="flex items-end justify-between mb-2">
+//                   <p className="font-display text-3xl font-bold text-gradient-gold">
+//                     R$ {stats.entregasComissaoMes.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+//                   </p>
+//                   <p className="text-sm text-muted-foreground">
+//                     de <span className="font-semibold text-foreground">R$ {stats.entregasMetaMes.toLocaleString("pt-BR")}</span>
+//                   </p>
+//                 </div>
+//                 <Progress value={pct} className="h-2" />
+//                 <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+//                   <div className="p-2 rounded-lg bg-card-elevated/60 border border-border/40">
+//                     <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Progresso</p>
+//                     <p className="font-display font-bold text-lg">{pct.toFixed(0)}%</p>
+//                   </div>
+//                   <div className="p-2 rounded-lg bg-card-elevated/60 border border-border/40">
+//                     <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Enviadas</p>
+//                     <p className="font-display font-bold text-lg">{stats.entregasEnviadasMes}</p>
+//                   </div>
+//                   <div className="p-2 rounded-lg bg-card-elevated/60 border border-border/40">
+//                     <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Recebidas</p>
+//                     <p className="font-display font-bold text-lg">{stats.entregasRecebidasMes}</p>
+//                   </div>
+//                 </div>
+//               </>
+//             );
+//           })()}
+//         </Card>
+
+//         {/* Agenda do dia */}
+//         <Card className="glass-card p-6 border-l-4 border-l-warning">
+//           <div className="flex items-start justify-between mb-4">
+//             <div>
+//               <h2 className="font-display font-semibold text-lg flex items-center gap-2">
+//                 <ListTodo className="h-5 w-5 text-warning" /> Minha Agenda — Hoje
+//               </h2>
+//               <p className="text-xs text-muted-foreground mt-0.5">
+//                 {stats.tarefasHoje.filter((t: any) => t.status !== "concluida").length} pendentes • {stats.tarefasHoje.filter((t: any) => t.status === "concluida").length} concluídas
+//               </p>
+//             </div>
+//             <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => window.location.href = "/crm"}>Abrir CRM</Button>
+//           </div>
+//           <div className="space-y-2 max-h-[260px] overflow-y-auto scrollbar-thin pr-1">
+//             {stats.tarefasHoje.length === 0 ? (
+//               <div className="py-8 text-center text-muted-foreground text-sm">
+//                 <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
+//                 Nenhuma tarefa para hoje.
+//               </div>
+//             ) : (
+//               stats.tarefasHoje.map((t: any) => {
+//                 const done = t.status === "concluida";
+//                 const prio = t.prioridade;
+//                 const prioColor =
+//                   prio === "urgente" ? "bg-destructive/15 text-destructive border-destructive/30" :
+//                   prio === "alta" ? "bg-warning/15 text-warning border-warning/30" :
+//                   prio === "baixa" ? "bg-muted text-muted-foreground border-border" :
+//                   "bg-primary/10 text-primary border-primary/20";
+//                 return (
+//                   <div key={t.id} className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${done ? "bg-success/5 border-success/20 opacity-60" : "bg-card-elevated/60 border-border/40 hover:border-primary/40"}`}>
+//                     <CheckCircle2 className={`h-4 w-4 mt-0.5 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
+//                     <div className="flex-1 min-w-0">
+//                       <p className={`text-sm font-medium truncate ${done ? "line-through" : ""}`}>{t.titulo}</p>
+//                       {t.descricao && <p className="text-xs text-muted-foreground truncate mt-0.5">{t.descricao}</p>}
+//                       <div className="flex items-center gap-2 mt-1.5">
+//                         {t.hora && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{t.hora.slice(0,5)}</span>}
+//                         <Badge variant="outline" className={`text-[10px] py-0 px-1.5 h-4 ${prioColor}`}>{prio}</Badge>
+//                       </div>
+//                     </div>
+//                   </div>
+//                 );
+//               })
+//             )}
+//           </div>
+//         </Card>
+//       </div>
+
+//       <div>
+//         <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2"><Bus className="h-5 w-5 text-primary" /> Monitor de Frotas — Hoje</h2>
+//         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+//           {[
+//             { titulo: "Frota Descendo", icone: ArrowDownRight, lista: stats.descendo, prox: stats.proxDescendo, atrasados: stats.atrasadosDescendo, accent: "text-blue-400", border: "border-l-blue-500", desc: "Sentido litoral (Ilhéus / Porto)" },
+//             { titulo: "Frota Subindo", icone: ArrowUpRight, lista: stats.subindo, prox: stats.proxSubindo, atrasados: stats.atrasadosSubindo, accent: "text-amber-400", border: "border-l-amber-500", desc: "Sentido interior (Conquista)" },
+//           ].map((b) => {
+//             const Icone = b.icone;
+//             const pendentes = b.lista.filter((e: any) => !e.passou).length;
+//             return (
+//               <Card key={b.titulo} className={`glass-card p-5 hover:border-primary/40 transition-all border-l-4 ${b.atrasados > 0 ? "border-l-destructive shadow-[0_0_15px_rgba(239,68,68,0.1)]" : b.border}`}>
+//                 <div className="flex items-start justify-between">
+//                   <div>
+//                     <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+//                       <Icone className={`h-3.5 w-3.5 ${b.accent}`} /> {b.titulo}
+//                     </p>
+//                     <p className="text-[11px] text-muted-foreground mt-0.5">{b.desc}</p>
+//                   </div>
+//                   <Badge variant="outline" className="bg-background/40">{b.lista.length} hoje</Badge>
+//                 </div>
+//                 <div className="mt-4 grid grid-cols-3 gap-3">
+//                   <div>
+//                     <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Pendentes</p>
+//                     <p className="font-display text-xl font-bold">{pendentes}</p>
+//                   </div>
+//                   <div>
+//                     <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Atrasados</p>
+//                     <p className={`font-display text-xl font-bold ${b.atrasados > 0 ? "text-destructive" : "text-muted-foreground"}`}>{b.atrasados}</p>
+//                   </div>
+//                   <div>
+//                     <p className="text-[10px] uppercase text-muted-foreground tracking-wider">Próximo</p>
+//                     <p className="font-display text-xl font-bold truncate">
+//                       {b.prox ? (b.prox.hora_saida_prevista || b.prox.previsao_chegada || "—") : "—"}
+//                     </p>
+//                   </div>
+//                 </div>
+//                 {/* {b.prox && (
+//                   <p className="text-[11px] text-muted-foreground mt-3 truncate">
+//                     Serviço #{b.prox.servico} • {b.prox.rota || "rota"} • Carro {b.prox.carro}
+//                   </p>
+//                 )}
+//                 {b.lista.length === 0 && (
+//                   <p className="text-[11px] text-muted-foreground mt-3">Nenhum serviço neste sentido hoje.</p>
+//                 )} */}
+//                 {/* BLOCO ATRASADO + PRÓXIMO */}
+// {(() => {
+//   const atrasadoItem = b.lista.find((e: any) => {
+//     if (e.passou) return false;
+
+//     const hora = e.hora_saida_prevista || e.previsao_chegada;
+//     if (!hora) return false;
+
+//     const horaFormatada = hora.slice(0, 5);
+//     if (!horaFormatada.includes(":")) return false;
+
+//     const [h, m] = horaFormatada.split(":").map(Number);
+//     if (isNaN(h) || isNaN(m)) return false;
+
+//     const horaItem = h * 60 + m;
+//     const agora = new Date();
+//     const agoraMin = agora.getHours() * 60 + agora.getMinutes();
+
+//     return horaItem < agoraMin;
+//   });
+
+//   return (
+//     <>
+//       {/* ATRASADO */}
+     
+
+//       {/* PRÓXIMO */}
+   
+//     {/* {expandirPrevisao === b.prox.id && (
+//     <div className="mt-4 pt-4 border-t border-border/50">
+        
+//     </div>
+//     )} */}
+
+//     {/* <Button
+//       variant="ghost"
+//       size="sm"
+//       className="mt-3 h-8 px-2 text-xs"
+//       onClick={() =>
+//         setExpandirPrevisao(expandirPrevisao === b.prox.id ? null : b.prox.id)
+//       }
+//     >
+//       {expandirPrevisao === b.prox.id
+//         ? "Ocultar acompanhamento ▲"
+//         : "Ver acompanhamento ▼"}
+//     </Button> */}
+
+//       {/* SEM SERVIÇOS */}
+//       {b.lista.length === 0 && (
+//         <div className="mt-4 rounded-xl border border-dashed border-border/50 bg-background/30 p-4 text-center">
+//           <p className="text-sm font-medium text-muted-foreground">
+//             Nenhum serviço neste sentido hoje
+//           </p>
+
+//           <p className="text-[11px] text-muted-foreground/70 mt-1">
+//             Novos embarques aparecerão aqui automaticamente
+//           </p>
+//         </div>
+//       )}
+//     </>
+//   );
+// })()}
+
+//     {/* BLOCO ATRASADO + PRÓXIMO LADO A LADO */}
+//     {(() => {
+//       const atrasadoItem = b.lista.find((e: any) => {
+//         if (e.passou) return false;
+
+//         const hora = e.hora_saida_prevista || e.previsao_chegada;
+//         if (!hora) return false;
+
+//         const horaFormatada = hora.slice(0, 5);
+//         if (!horaFormatada.includes(":")) return false;
+
+//         const [h, m] = horaFormatada.split(":").map(Number);
+//         if (isNaN(h) || isNaN(m)) return false;
+
+//         const horaItem = h * 60 + m;
+//         const agora = new Date();
+//         const agoraMin = agora.getHours() * 60 + agora.getMinutes();
+
+//         return horaItem < agoraMin;
+//       });
+
+//       return (
+//         <>
+//           {(atrasadoItem || b.prox) && (
+//             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              
+//               {/* ATRASADO */}
+//               {atrasadoItem && (
+//                 <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+//                   <p className="text-[10px] uppercase tracking-wider text-destructive font-semibold mb-2">
+//                     Serviço Atrasado
+//                   </p>
+
+//                   <div className="space-y-2">
+//                     <div className="px-2 py-1 rounded-md bg-destructive/10 text-destructive text-xs font-semibold border border-destructive/20 inline-block">
+//                       Serviço #{atrasadoItem.servico || "---"}
+//                     </div>
+
+//                     <div className="px-2 py-1 rounded-md bg-background/60 text-xs text-foreground border border-border/50">
+//                       📍 {atrasadoItem.rota || "Rota não definida"}
+//                     </div>
+
+//                     <div className="px-2 py-1 rounded-md bg-background/60 text-xs text-destructive border border-destructive/20 font-medium">
+//                       ⏰ {atrasadoItem.hora_saida_prevista || atrasadoItem.previsao_chegada || "--:--"}
+//                     </div>
+//                   </div>
+//                 </div>
+//               )}
+
+//               {/* PRÓXIMO */}
+//               {b.prox && (
+//                 <div className="rounded-xl border border-border/50 bg-card-elevated/40 p-3">
+//                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+//                     Próximo Serviço
+//                   </p>
+
+//                   <div className="space-y-2">
+//                     <div className="px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold border border-primary/20 inline-block">
+//                       Serviço #{b.prox.servico || "---"}
+//                     </div>
+
+//                     <div className="px-2 py-1 rounded-md bg-background/60 text-xs text-foreground border border-border/50">
+//                       📍 {b.prox.rota || "Rota não definida"}
+//                     </div>
+
+//                     <div className="px-2 py-1 rounded-md bg-secondary text-xs font-medium border border-border">
+//                       ⏰ {b.prox.hora_saida_prevista || b.prox.previsao_chegada || "--:--"}
+//                     </div>
+//                   </div>
+//                 </div>
+//               )}
+
+              
+//             </div>
+//           )}
+
+//           {/* SEM SERVIÇOS */}
+//           {b.lista.length === 0 && (
+//             <div className="mt-4 rounded-xl border border-dashed border-border/50 bg-background/30 p-4 text-center">
+//               <p className="text-sm font-medium text-muted-foreground">
+//                 Nenhum serviço neste sentido hoje
+//               </p>
+
+//               <p className="text-[11px] text-muted-foreground/70 mt-1">
+//                 Novos embarques aparecerão aqui automaticamente
+//               </p>
+//             </div>
+//           )}
+
+          
+//         </>
+//       );
+//     })()}
+//               </Card>
+
+              
+//             );
+//           })}
+//         </div>
+//       </div>
+
+//       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+//         <div className="lg:col-span-2 space-y-6">
+//           <Card className="glass-card p-6">
+//             <div className="flex items-center justify-between mb-5">
+//               <div>
+//                 <h2 className="font-display font-semibold text-lg flex items-center gap-2"><Bus className="h-5 w-5 text-primary" /> Operacional e Frota</h2>
+//                 <p className="text-xs text-muted-foreground mt-0.5">Veículos operando e próximos embarques</p>
+//               </div>
+//               <div className="flex gap-2">
+//                 <Badge variant="outline" className="bg-success/10 text-success border-success/20">{stats.veiculosOperando} Operando</Badge>
+//                 {stats.veiculosManutencao > 0 && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">{stats.veiculosManutencao} Manutenção</Badge>}
+//               </div>
+//             </div>
+
+            
+            
+//             {stats.proximos.length === 0 ? (
+//               <div className="py-12 text-center text-muted-foreground text-sm">
+//                 <Calendar className="h-10 w-10 mx-auto mb-3 opacity-40" />
+//                 Nenhum embarque agendado ainda.
+//               </div>
+//             ) : (
+//               <div className="space-y-3">
+//                 {stats.proximos.map((e: any) => {
+//                   const dt = new Date(e.data_saida);
+//                   return (
+//                     <div key={e.id} className="flex items-center gap-4 p-3 rounded-xl bg-card-elevated/50 hover:bg-card-elevated border border-transparent hover:border-border transition-all">
+//                       <div className="flex flex-col items-center justify-center h-14 w-14 rounded-lg bg-gradient-gold text-primary-foreground shrink-0">
+//                         <span className="text-[10px] uppercase font-semibold opacity-80">{dt.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</span>
+//                         <span className="font-display font-bold text-lg leading-none">{dt.getDate()}</span>
+//                       </div>
+//                       <div className="flex-1 min-w-0">
+//                         <p className="font-medium truncate">{e.origem} → {e.destino}</p>
+//                         <p className="text-xs text-muted-foreground flex gap-2 items-center mt-0.5">
+//                           <span>{e.local_embarque || "Local não definido"}</span>
+//                           {e.veiculos?.placa && <span>• Carro: {e.veiculos.placa}</span>}
+//                         </p>
+//                       </div>
+//                       <Badge variant="outline" className="border-border bg-background">{dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</Badge>
+//                     </div>
+//                   );
+//                 })}
+//               </div>
+//             )}
+//           </Card>
+//         </div>
+
+//         <div className="space-y-6">
+//           <Card className="glass-card p-6">
+//             <h2 className="font-display font-semibold text-lg flex items-center gap-2 mb-4"><Users className="h-5 w-5 text-primary" /> Base de Clientes</h2>
+//             <div className="space-y-4">
+//               <div className="flex items-center justify-between pb-4 border-b border-border/50">
+//                 <div>
+//                   <p className="font-medium">Total de Passageiros</p>
+//                   <p className="text-xs text-muted-foreground">Clientes cadastrados na base</p>
+//                 </div>
+//                 <p className="font-display font-bold text-lg">{stats.totalPassageiros}</p>
+//               </div>
+//               <div className="flex items-center justify-between pb-4 border-b border-border/50">
+//                 <div>
+//                   <p className="font-medium text-warning">Retornos Pendentes</p>
+//                   <p className="text-xs text-muted-foreground">Clientes para vender volta</p>
+//                 </div>
+//                 <Badge variant="secondary" className="bg-warning/15 text-warning">{stats.oportunidadesRetorno}</Badge>
+//               </div>
+//               <div className="flex items-center justify-between">
+//                 <div>
+//                   <p className="font-medium text-muted-foreground">Passageiros Inativos</p>
+//                   <p className="text-xs text-muted-foreground">+60 dias sem viajar</p>
+//                 </div>
+//                 <Badge variant="outline">{stats.passageirosInativos}</Badge>
+//               </div>
+//             </div>
+//           </Card>
+
+//           <Card className="glass-card p-6 bg-primary/5 border-primary/20">
+//             <div className="flex items-center gap-2 mb-3">
+//               <Star className="h-4 w-4 text-primary" />
+//               <h3 className="font-display font-semibold">CRM Inteligente</h3>
+//             </div>
+//             <p className="text-sm text-muted-foreground mb-4">Seu funil de vendas tem <strong>{stats.leadsAtivos}</strong> leads aguardando uma ação. Acompanhe a área de CRM para fechamentos mais rápidos.</p>
+//           </Card>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bus, Users, TrendingUp, AlertTriangle, Calendar, Star, CheckCircle2, ArrowUpRight, ArrowDownRight, Loader2, DollarSign, Wallet, Activity, MessageCircle, Package, Target, ListTodo, Clock } from "lucide-react";
+import { Bus, Users, TrendingUp, AlertTriangle, Calendar, Star, CheckCircle2, ArrowUpRight, ArrowDownRight, Loader2, DollarSign, Wallet, Activity, MessageCircle, Package, Target, ListTodo, Clock, Truck, Briefcase } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sendText, getAllContacts, getAllLabels } from "@/utils/sendZapApi";interface DashboardStats {
+import { sendText, getAllContacts, getAllLabels } from "@/utils/sendZapApi";
+
+// Importações para o funcionamento do Modal
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
+interface DashboardStats {
   faturamentoMes: number;
   custoMes: number;
   lucroMes: number;
@@ -43,8 +783,15 @@ import { sendText, getAllContacts, getAllLabels } from "@/utils/sendZapApi";inte
 export default function Dashboard() {
   const { profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
+  const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
   
+  // Estados de controle da simulação do Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedServico, setSelectedServico] = useState<any>(null);
+  const [horaSaidaReal, setHoraSaidaReal] = useState("");
+  const [tempoEstimadoMinutos, setTempoEstimadoMinutos] = useState("180");
+  const [previsaoCalculada, setPrevisaoCalculada] = useState<string | null>(null);
+
   useEffect(() => {
     const load = async () => {
       const now = new Date().toISOString();
@@ -195,25 +942,53 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
     load();
   }, []);
 
+  // Calculador interno de simulação
+  useEffect(() => {
+    if (horaSaidaReal && tempoEstimadoMinutos) {
+      const [h, m] = horaSaidaReal.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) {
+        const totalMinutos = h * 60 + m + Number(tempoEstimadoMinutos);
+        const horasFinais = Math.floor(totalMinutos / 60) % 24;
+        const minutosFinais = totalMinutos % 60;
+        setPrevisaoCalculada(
+          `${String(horasFinais).padStart(2, "0")}:${String(minutosFinais).padStart(2, "0")}`
+        );
+      }
+    }
+  }, [horaSaidaReal, tempoEstimadoMinutos]);
+
+  const abrirModalSimulacao = (servico: any) => {
+    setSelectedServico(servico);
+    const agora = new Date();
+    setHoraSaidaReal(`${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`);
+    setTempoEstimadoMinutos("180");
+    setIsModalOpen(true);
+  };
+
+  const aplicarSimulacaoVisual = () => {
+    if (!selectedServico || !previsaoCalculada || !stats) return;
+
+    const atualizarLista = (lista: any[]) => 
+      lista.map(item => item.id === selectedServico.id 
+        ? { ...item, previsao_chegada: previsaoCalculada + ":00", hora_saida_real: horaSaidaReal + ":00" }
+        : item
+      );
+
+    setStats({
+      ...stats,
+      subindo: atualizarLista(stats.subindo),
+      descendo: atualizarLista(stats.descendo)
+    });
+
+    setIsModalOpen(false);
+  };
+
   if (!stats) return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-10">
       <div className="relative overflow-hidden rounded-2xl bg-gradient-hero border border-border p-8">
         <div className="absolute inset-0 bg-gradient-glow opacity-60" />
-        {/* <div className="relative flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-primary/80 font-medium mb-2">Painel Consolidado</p>
-            <h1 className="font-display text-3xl lg:text-4xl font-bold">Olá, {profile?.nome?.split(" ")[0] || "agente"} 👋</h1>
-            <p className="text-muted-foreground mt-2 max-w-xl">
-              Você tem <span className="text-foreground font-medium">{stats.proximos.length} embarques próximos</span> e <span className="text-foreground font-medium">{stats.leadsAtivos} leads</span> em andamento.
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Hoje</p>
-            <p className="font-display font-semibold text-lg">{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</p>
-          </div>
-        </div> */}
         <div className="relative flex items-center justify-between flex-wrap gap-4">
   <div>
     <p className="text-xs uppercase tracking-widest text-primary/80 font-medium mb-2">
@@ -236,24 +1011,68 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
       em andamento.
     </p>
 
-    {/* Botões de Ação */}
-<div className="mt-4 flex items-center gap-4">
-  <a
-    href="https://sua-plataforma-de-vendas.com"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="inline-flex items-center text-sm font-medium text-primary hover:opacity-80 transition-opacity"
-  >
-    Epass →
-  </a>
-   <a
-    href="https://voyage-flow-henna.vercel.app/publico"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="inline-flex items-center text-sm font-medium text-primary hover:opacity-80 transition-opacity"
-  >
-    Central NH →
-  </a>
+{/* LINKS E FERRAMENTAS OPERACIONAIS DE BALCÃO */}
+<div className="mt-6">
+  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+    Sistemas Operacionais Novo Horizonte
+  </p>
+  
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    {/* EPASS */}
+    <a
+      href="http://epass.com.br/epass/vendas/pesquisa"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-sm"
+    >
+      <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-500/20 transition-colors shrink-0">
+        <Briefcase className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+          Epass <span className="text-xs font-normal text-muted-foreground group-hover:translate-x-0.5 transition-transform">→</span>
+        </p>
+        <p className="text-xs text-muted-foreground truncate">Venda e pesquisa de passagens</p>
+      </div>
+    </a>
+
+    {/* CENTRAL NH */}
+    <a
+      href="https://voyage-flow-henna.vercel.app/publico"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-sm"
+    >
+      <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:bg-amber-500/20 transition-colors shrink-0">
+        <Truck className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+          Central NH <span className="text-xs font-normal text-muted-foreground group-hover:translate-x-0.5 transition-transform">→</span>
+        </p>
+        <p className="text-xs text-muted-foreground truncate">Monitoramento de mapas e carros</p>
+      </div>
+    </a>
+
+    {/* RPA */}
+    <a
+      href="https://voyage-flow-henna.vercel.app/publico"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card hover:bg-primary/5 hover:border-primary/40 transition-all group shadow-sm"
+    >
+      <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 group-hover:bg-purple-500/20 transition-colors shrink-0">
+        <Package className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+          RPA <span className="text-xs font-normal text-muted-foreground group-hover:translate-x-0.5 transition-transform">→</span>
+        </p>
+        <p className="text-xs text-muted-foreground truncate">Sistema oficial de encomendas</p>
+      </div>
+    </a>
+  </div>
 </div>
 
   </div>
@@ -427,15 +1246,7 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
                     </p>
                   </div>
                 </div>
-                {/* {b.prox && (
-                  <p className="text-[11px] text-muted-foreground mt-3 truncate">
-                    Serviço #{b.prox.servico} • {b.prox.rota || "rota"} • Carro {b.prox.carro}
-                  </p>
-                )}
-                {b.lista.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground mt-3">Nenhum serviço neste sentido hoje.</p>
-                )} */}
-                {/* BLOCO ATRASADO + PRÓXIMO */}
+                
 {(() => {
   const atrasadoItem = b.lista.find((e: any) => {
     if (e.passou) return false;
@@ -458,30 +1269,6 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
 
   return (
     <>
-      {/* ATRASADO */}
-     
-
-      {/* PRÓXIMO */}
-   
-    {/* {expandirPrevisao === b.prox.id && (
-    <div className="mt-4 pt-4 border-t border-border/50">
-        
-    </div>
-    )} */}
-
-    {/* <Button
-      variant="ghost"
-      size="sm"
-      className="mt-3 h-8 px-2 text-xs"
-      onClick={() =>
-        setExpandirPrevisao(expandirPrevisao === b.prox.id ? null : b.prox.id)
-      }
-    >
-      {expandirPrevisao === b.prox.id
-        ? "Ocultar acompanhamento ▲"
-        : "Ver acompanhamento ▼"}
-    </Button> */}
-
       {/* SEM SERVIÇOS */}
       {b.lista.length === 0 && (
         <div className="mt-4 rounded-xl border border-dashed border-border/50 bg-background/30 p-4 text-center">
@@ -524,9 +1311,12 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
           {(atrasadoItem || b.prox) && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
               
-              {/* ATRASADO */}
+              {/* ATRASADO — Clique adicionado */}
               {atrasadoItem && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+                <div 
+                  onClick={() => abrirModalSimulacao(atrasadoItem)}
+                  className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 cursor-pointer hover:bg-destructive/10 transition-colors"
+                >
                   <p className="text-[10px] uppercase tracking-wider text-destructive font-semibold mb-2">
                     Serviço Atrasado
                   </p>
@@ -547,9 +1337,12 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
                 </div>
               )}
 
-              {/* PRÓXIMO */}
+              {/* PRÓXIMO — Clique adicionado */}
               {b.prox && (
-                <div className="rounded-xl border border-border/50 bg-card-elevated/40 p-3">
+                <div 
+                  onClick={() => abrirModalSimulacao(b.prox)}
+                  className="rounded-xl border border-border/50 bg-card-elevated/40 p-3 cursor-pointer hover:bg-primary/5 transition-colors"
+                >
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
                     Próximo Serviço
                   </p>
@@ -679,10 +1472,75 @@ const [expandirPrevisao, setExpandirPrevisao] = useState<string | null>(null);
               <Star className="h-4 w-4 text-primary" />
               <h3 className="font-display font-semibold">CRM Inteligente</h3>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">Seu funil de vendas tem <strong>{stats.leadsAtivos}</strong> leads aguardando uma ação. Acompanhe a área de CRM para fechamentos mais rápidos.</p>
+            <p className="text-sm text-muted-foreground mb-4">Seu funil de vendas tem <strong>{stats.leadsAtivos}</strong> leads aguardando uma action. Acompanhe a área de CRM para fechamentos mais rápidos.</p>
           </Card>
         </div>
       </div>
+
+      {/* --- INSERÇÃO DO MODAL DE SIMULAÇÃO LOCAL (SEM ALTERAR BANCO DE DADOS) --- */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[420px] bg-card border-border shadow-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg font-bold flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" /> Simulador de Horário Dinâmico
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedServico && (
+            <div className="space-y-4 my-3 text-sm">
+              <div className="p-3 bg-muted/50 border border-border rounded-xl">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Ônibus Selecionado</p>
+                <p className="font-bold text-foreground mt-1">Serviço Nº {selectedServico.servico}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">📍 {selectedServico.rota}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="horaSimulada" className="text-xs font-semibold">Se Saiu da Rodoviária às:</Label>
+                  <Input 
+                    id="horaSimulada"
+                    type="time" 
+                    value={horaSaidaReal}
+                    onChange={(e) => setHoraSaidaReal(e.target.value)}
+                    className="bg-background border-border"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="tempoSimulado" className="text-xs font-semibold">Média de Viagem (Minutos)</Label>
+                  <Input 
+                    id="tempoSimulado"
+                    type="number" 
+                    value={tempoEstimadoMinutos}
+                    onChange={(e) => setTempoEstimadoMinutos(e.target.value)}
+                    placeholder="Ex: 180"
+                    className="bg-background border-border"
+                  />
+                </div>
+              </div>
+
+              {previsaoCalculada && (
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
+                  <p className="text-xs text-muted-foreground uppercase font-medium tracking-widest">Previsão Estimada de Chegada</p>
+                  <p className="text-3xl font-black font-display text-primary mt-1">
+                    {previsaoCalculada}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">Calculado baseado no horário de balcão local</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>
+              Fechar
+            </Button>
+            <Button size="sm" className="bg-primary text-primary-foreground" onClick={aplicarSimulacaoVisual} disabled={!previsaoCalculada}>
+              Testar no Painel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

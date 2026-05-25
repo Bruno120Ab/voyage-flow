@@ -230,15 +230,14 @@ const [enviandoQuebra, setEnviandoQuebra] =
     if (enviarGrupo) {
       try {
       const texto = `
-  🚌 *LINHA ${embarqueSelecionado.rota?.toUpperCase()}*
-      Hora em sistema: ${embarqueSelecionado.hora_saida_prevista || "--"}
+  🛣️ *LINHA ${embarqueSelecionado.rota?.toUpperCase()}*
+     Hora em sistema: ${embarqueSelecionado.hora_saida_prevista || "--"}
 
-  🔢 *Serviço:* #${embarqueSelecionado.servico}
-  🚐 *Carro:* ${form.carro || "--"}
-  👨‍✈️ *Motorista:* ${form.motorista || "--"}
+  🔢*Serviço:* #${embarqueSelecionado.servico}
+  🚌*Carro:* ${form.carro || "--"}
+  👨‍✈️*Motorista:* ${form.motorista || "--"}
 
-  *Saindo de Itambe as:* ${form.horaReal || "--"}                                         
-
+  ⏰*Saindo de Itambe as:* ${form.horaReal || "--"}                                         
   *RODOVIARIA DE ITAMBÉ-BA*                                                                                                                                                                                             
 
   ${
