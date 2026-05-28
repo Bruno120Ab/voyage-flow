@@ -237,8 +237,8 @@ const [enviandoQuebra, setEnviandoQuebra] =
   🚌*Carro:* ${form.carro || "--"}
   👨‍✈️*Motorista:* ${form.motorista || "--"}
 
-  ⏰*Saindo de Itambe as:* ${form.horaReal || "--"}                                         
-  *RODOVIARIA DE ITAMBÉ-BA*                                                                                                                                                                                             
+  ⏰Saindo de Itambe as: ${form.horaReal || "--"}                                         
+  *PONTO DE APOIO DE ITAMBÉ-BA*                                                                                                                                                                                             
 
   ${
     form.encomenda?.trim()
