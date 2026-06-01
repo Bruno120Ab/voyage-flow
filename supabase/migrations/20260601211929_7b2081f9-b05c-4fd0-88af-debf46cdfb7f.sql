@@ -1,0 +1,1 @@
+ALTER TABLE public.vendas_diarias ADD COLUMN IF NOT EXISTS retirada numeric NOT NULL DEFAULT 0;
