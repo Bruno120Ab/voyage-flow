@@ -253,6 +253,7 @@ export type Database = {
           cidade_destino: string | null
           cidade_origem: string | null
           cliente_nome: string | null
+          companys: string | null
           created_at: string
           created_by: string | null
           data_ida: string | null
@@ -282,6 +283,7 @@ export type Database = {
           cidade_destino?: string | null
           cidade_origem?: string | null
           cliente_nome?: string | null
+          companys?: string | null
           created_at?: string
           created_by?: string | null
           data_ida?: string | null
@@ -311,6 +313,7 @@ export type Database = {
           cidade_destino?: string | null
           cidade_origem?: string | null
           cliente_nome?: string | null
+          companys?: string | null
           created_at?: string
           created_by?: string | null
           data_ida?: string | null
@@ -720,6 +723,7 @@ export type Database = {
           data: string
           id: string
           observacao: string | null
+          retirada: number
           updated_at: string
           valor: number
         }
@@ -729,6 +733,7 @@ export type Database = {
           data: string
           id?: string
           observacao?: string | null
+          retirada?: number
           updated_at?: string
           valor?: number
         }
@@ -738,6 +743,7 @@ export type Database = {
           data?: string
           id?: string
           observacao?: string | null
+          retirada?: number
           updated_at?: string
           valor?: number
         }

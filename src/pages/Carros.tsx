@@ -203,7 +203,7 @@ const [enviandoQuebra, setEnviandoQuebra] =
 
     const payload = {
       passou: true,
-      status: "concluido",
+      status: "concluido" as const,
       hora_real: form.horaReal,
       carro: form.carro || "--",
       motorista: form.motorista,

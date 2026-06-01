@@ -329,7 +329,7 @@ export default function CRM() {
         }
         
         if (autobotTriggered) {
-          fetchLeads(); // Atualiza a tela
+          supabase.from("leads").select("*").order("updated_at", { ascending: false }).then(({ data }) => { if (data) setLeads(data as any[]); });
         }
       } catch (err) {
         console.error("Erro no AutoBot:", err);
@@ -1244,7 +1244,7 @@ const contatosPorHora = Array.from({ length: 24 }, (_, hour) => {
                                     
                                     try {
                                       toast.info("Enviando...");
-                                      let numToSend = phone;
+                                      let numToSend = cleanPhone;
                                       if (!numToSend.includes("@")) {
                                         numToSend = numToSend.replace(/\D/g, "");
                                         if (!numToSend.startsWith("55") && numToSend.length <= 11) {
